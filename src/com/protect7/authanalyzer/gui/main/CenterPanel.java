@@ -1,44 +1,11 @@
 package com.protect7.authanalyzer.gui.main;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JEditorPane;
-import javax.swing.JLabel;
-import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
-import javax.swing.JSplitPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
-import javax.swing.event.RowSorterEvent;
-import javax.swing.event.RowSorterListener;
+import burp.*;
 import com.protect7.authanalyzer.entities.AnalyzerRequestResponse;
+import com.protect7.authanalyzer.entities.DeduplicationOperation;
 import com.protect7.authanalyzer.entities.OriginalRequestResponse;
 import com.protect7.authanalyzer.entities.Session;
+import com.protect7.authanalyzer.gui.dialog.CopyAPIsConfigDialog;
 import com.protect7.authanalyzer.gui.dialog.DataExportDialog;
 import com.protect7.authanalyzer.gui.util.BypassCellRenderer;
 import com.protect7.authanalyzer.gui.util.CustomRowSorter;
@@ -48,14 +15,20 @@ import com.protect7.authanalyzer.gui.util.RequestTableModel.Column;
 import com.protect7.authanalyzer.util.BypassConstants;
 import com.protect7.authanalyzer.util.CurrentConfig;
 import com.protect7.authanalyzer.util.Diff_match_patch;
-import com.protect7.authanalyzer.util.GenericHelper;
 import com.protect7.authanalyzer.util.Diff_match_patch.Diff;
 import com.protect7.authanalyzer.util.Diff_match_patch.LinesToCharsResult;
-import burp.BurpExtender;
-import burp.IHttpRequestResponse;
-import burp.IHttpService;
-import burp.IMessageEditor;
-import burp.IMessageEditorController;
+import com.protect7.authanalyzer.util.GenericHelper;
+
+import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.List;
+import java.util.*;
+
+import static javax.swing.SwingUtilities.invokeLater;
 
 public class CenterPanel extends JPanel {
 
@@ -63,11 +36,11 @@ public class CenterPanel extends JPanel {
 	private final MainPanel mainPanel;
 	private final String TABLE_SETTINGS = "TABLE_SETTINGS";
 	private final CurrentConfig config = CurrentConfig.getCurrentConfig();
-	private final ImageIcon loaderImageIcon = new ImageIcon(this.getClass().getClassLoader().getResource("loader.gif"));
+	private final ImageIcon loaderImageIcon = new ImageIcon(Objects.requireNonNull(this.getClass().getClassLoader().getResource("loader.gif")));
 	private final JTable table;
 	private final JPanel tablePanel = new JPanel(new BorderLayout());
 	private final ListSelectionModel selectionModel;
-	private final HashSet<Column> columnSet = new HashSet<Column>();
+	private final HashSet<Column> columnSet = new HashSet<>();
 	private RequestTableModel tableModel;
 	private final JPanel messageViewPanel;
 	private CustomRowSorter sorter;
@@ -130,35 +103,31 @@ public class CenterPanel extends JPanel {
 		pendingRequestsLabel.setForeground(new Color(240, 110, 0));
 		pendingRequestsLabel.setVisible(false);
 		topPanel.add(pendingRequestsLabel, BorderLayout.SOUTH);
-		
+
 		tablePanel.add(new JScrollPane(topPanel, JScrollPane.VERTICAL_SCROLLBAR_NEVER, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED), BorderLayout.NORTH);
-	
+
 		loadTableSettings();
-		initTableWithModel();		
+		initTableWithModel();
 		table.setDefaultRenderer(Integer.class, new BypassCellRenderer());
 		table.setDefaultRenderer(String.class, new BypassCellRenderer());
-		table.setDefaultRenderer(BypassConstants.class, new BypassCellRenderer());	
+		table.setDefaultRenderer(BypassConstants.class, new BypassCellRenderer());
 		tablePanel.add(new JScrollPane(table), BorderLayout.CENTER);
-		
+
 		JPanel tableConfigPanel = new JPanel();
 		clearTableButton = new JButton("Clear Table");
 		clearTableButton.addActionListener(e -> clearTablePressed());
 		tableConfigPanel.add(clearTableButton);
 		JButton exportDataButton = new JButton("Export Table Data");
-		exportDataButton.addActionListener(e -> { 
+		exportDataButton.addActionListener(e -> {
 			exportDataButton.setIcon(loaderImageIcon);
-			new Thread(new Runnable() {
-				
-				@Override
-				public void run() {
-					new DataExportDialog(CenterPanel.this);
-					exportDataButton.setIcon(null);
-				}
-			}).start();			
+			new Thread(() -> {
+                new DataExportDialog(CenterPanel.this);
+                exportDataButton.setIcon(null);
+            }).start();
 			});
 		tableConfigPanel.add(exportDataButton);
 		tablePanel.add(tableConfigPanel, BorderLayout.SOUTH);
-		
+
 		tabbedPanel1 = new RequestResponsePanel(0, this);
 		tabbedPanel2 = new RequestResponsePanel(1, this);
 		JPanel messageViewButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
@@ -240,16 +209,16 @@ public class CenterPanel extends JPanel {
 				comparisonScrollPane.setVisible(false);
 				expandDiffButton.setEnabled(false);
 			}
-			SwingUtilities.invokeLater(new Runnable() {
-				
+			invokeLater(new Runnable() {
+
 				@Override
 				public void run() {
 					messageViewPanel.revalidate();
 				}
 			});
 		});
-		
-		
+
+
 		messageViewPanel.setBorder(BorderFactory.createLineBorder(Color.GRAY));
 		tabbedPanel1.setBorder(BorderFactory.createLineBorder(Color.GRAY));
 		tabbedPanel2.setBorder(BorderFactory.createLineBorder(Color.GRAY));
@@ -262,13 +231,60 @@ public class CenterPanel extends JPanel {
 		selectionModel.addListSelectionListener(new ListSelectionListener() {
 
 			@Override
-			public void valueChanged(ListSelectionEvent e) { 
+			public void valueChanged(ListSelectionEvent e) {
 				changeRequestResponseView(false);
 			}
-			
+
 		});
 		setupTableContextMenu();
 	}
+
+    public ArrayList<OriginalRequestResponse> getSelectedReqRespResponses() {
+        ArrayList<OriginalRequestResponse> selectedReqRespResponses = new ArrayList<>();
+        for (int row : table.getSelectedRows()) {
+            selectedReqRespResponses.add(tableModel.getOriginalRequestResponseList().get(row));
+        }
+        return selectedReqRespResponses;
+    }
+
+    // get marked OriginalRequestResponse
+    public ArrayList<OriginalRequestResponse> getMarkedReqRespResponses() {
+        ArrayList<OriginalRequestResponse> markedReqRespResponses = new ArrayList<>();
+        for (OriginalRequestResponse originalRequestResponse : tableModel.getOriginalRequestResponseList()) {
+            if (originalRequestResponse.isMarked()) {
+                markedReqRespResponses.add(originalRequestResponse);
+            }
+        }
+        return markedReqRespResponses;
+    }
+
+    // get unmarked OriginalRequestResponse
+    public ArrayList<OriginalRequestResponse> getUnMarkedRespResponses() {
+        ArrayList<OriginalRequestResponse> unmarkedReqRespResponses = new ArrayList<>();
+        for (OriginalRequestResponse originalRequestResponse : tableModel.getOriginalRequestResponseList()) {
+            if (!originalRequestResponse.isMarked()) {
+                unmarkedReqRespResponses.add(originalRequestResponse);
+            }
+        }
+        return unmarkedReqRespResponses;
+    }
+
+    // is requestResponse contain commented
+    public boolean isReqRespContainCommented(OriginalRequestResponse originalRequestResponse) {
+        return originalRequestResponse.getComment() != null && !originalRequestResponse.getComment().isEmpty();
+    }
+
+    // get commented OriginalRequestResponse
+    public ArrayList<OriginalRequestResponse> getCommentedReqRespResponses() {
+        ArrayList<OriginalRequestResponse> commentedReqRespResponses = new ArrayList<>();
+        for (OriginalRequestResponse originalRequestResponse : tableModel.getOriginalRequestResponseList()) {
+            if (isReqRespContainCommented(originalRequestResponse)) {
+                commentedReqRespResponses.add(originalRequestResponse);
+            }
+        }
+        return commentedReqRespResponses;
+    }
+
 
 	private void loadTableSettings() {
 		String savedSettings = BurpExtender.callbacks.loadExtensionSetting(TABLE_SETTINGS);
@@ -330,7 +346,7 @@ public class CenterPanel extends JPanel {
 							dmp.diff_charsToLines(diffs, lineArray);
 							final String diffPaneText = getHTMLfromDiff(diffs);
 							diffPane.setText(diffPaneText);
-							SwingUtilities.invokeLater(new Runnable() {
+							invokeLater(new Runnable() {
 
 								@Override
 								public void run() {
@@ -393,56 +409,218 @@ public class CenterPanel extends JPanel {
 					int[] rows = table.getSelectedRows();
 					if (rows.length > 0) {
 						JPopupMenu contextMenu = new JPopupMenu();
-						final ArrayList<OriginalRequestResponse> requestResponseList = new ArrayList<OriginalRequestResponse>();
+						final ArrayList<OriginalRequestResponse> selectedRequestResponseList = new ArrayList<>();
+
+                        final ArrayList<OriginalRequestResponse> allOriginalRequestResponse = tableModel.getOriginalRequestResponseList();
 						String appendix = "";
 						if (rows.length > 1) {
 							appendix = "s";
 						}
 						for (int row : rows) {
-							requestResponseList
+							selectedRequestResponseList
 									.add(tableModel.getOriginalRequestResponse(table.convertRowIndexToModel(row)));
 						}
+
+						///////////////////////////////////////////////////////////////////////////////////////////////
+                        // copy apis
+						///////////////////////////////////////////////////////////////////////////////////////////////
+						JMenu copyApisMenu = new JMenu("[Copy APIs]");
+
+						// copy apis apis in deduplicated
+						////////////////////////////////////////////////////////////////////////////////////////////////
+						JMenu copyApisDeduplicatedSubMenu = new JMenu("Copy APIs (Deduplicated)");
+
+						// copy all apis in deduplicated
+						JMenuItem copyAllApisDeduplicatedItem = new JMenuItem("Copy All APIs (Deduplicated)");
+						copyApisDeduplicatedSubMenu.add(copyAllApisDeduplicatedItem);
+
+						// copy apis which are selected in deduplicated
+						JMenuItem copySelectedApisDeduplicatedItem = new JMenuItem("Copy Selected APIs (Deduplicated)");
+						copyApisDeduplicatedSubMenu.add(copySelectedApisDeduplicatedItem);
+
+						// count the marked rows counter
+						int markedRowsCounter = 0;
+						for (OriginalRequestResponse originalRequestResponse : allOriginalRequestResponse) {
+							if (originalRequestResponse.isMarked()) {
+								markedRowsCounter++;
+							}
+						}
+						// if marked rows >= 1 then add the menu item
+						if (markedRowsCounter >= 1) {
+                            // copy apis which are marked in deduplicated
+                            JMenuItem copyMarkedApisDeduplicatedItem = new JMenuItem("Copy Marked APIs (Deduplicated)");
+
+							copyMarkedApisDeduplicatedItem.addActionListener(e->{
+								List<OriginalRequestResponse> markedOriginalRequestResponseList = getMarkedReqRespResponses();
+								CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(markedOriginalRequestResponseList, DeduplicationOperation.YES);
+								copyAPIsConfigDialog.setVisible(true);
+							});
+
+							copyApisDeduplicatedSubMenu.add(copyMarkedApisDeduplicatedItem);
+						}
+
+						// if marked rows >= 1 then add the menu item
+						if (markedRowsCounter >= 1) {
+                            // copy apis which are unmarked in No-Deduplicated
+                            JMenuItem copyUnmarkedApisDeduplicatedItem = new JMenuItem("Copy Unmarked APIs (Deduplicated)");
+
+							copyUnmarkedApisDeduplicatedItem.addActionListener(e->{
+								List<OriginalRequestResponse> unmarkedOriginalRequestResponseList = getUnMarkedRespResponses();
+								CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(unmarkedOriginalRequestResponseList, DeduplicationOperation.YES);
+								copyAPIsConfigDialog.setVisible(true);
+							});
+
+							copyApisDeduplicatedSubMenu.add(copyUnmarkedApisDeduplicatedItem);
+						}
+
+                        // counter the commented rows
+                        int commentedRowsCounter = 0;
+                        for (OriginalRequestResponse originalRequestResponse : allOriginalRequestResponse) {
+                            if (!originalRequestResponse.getComment().isEmpty())  {
+                                commentedRowsCounter++;
+                            }
+                        }
+
+                        // if commented rows >= 1 then add the menu item
+                        if (commentedRowsCounter >= 1) {
+                            // copy apis which are commented in deduplicated
+                            JMenuItem copyCommentedApisDeduplicatedItem = new JMenuItem("Copy Commented APIs (Deduplicated)");
+
+							copyCommentedApisDeduplicatedItem.addActionListener(e->{
+										List<OriginalRequestResponse> commentedOriginalRequestResponseList = getCommentedReqRespResponses();
+										CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(commentedOriginalRequestResponseList, DeduplicationOperation.YES);
+										copyAPIsConfigDialog.setVisible(true);
+							});
+
+                            copyApisDeduplicatedSubMenu.add(copyCommentedApisDeduplicatedItem);
+                        }
+
+
+						// copy apis in No-Deduplicated
+						////////////////////////////////////////////////////////////////////////////////////////////////
+						JMenu copyApisNoDeduplicatedSubMenu = new JMenu("Copy APIs (No-Deduplicated)");
+
+						// copy all apis in No-Deduplicated
+						JMenuItem copyAllApisNoDeduplicatedItem = new JMenuItem("Copy All APIs (No-Deduplicated)");
+						copyApisNoDeduplicatedSubMenu.add(copyAllApisNoDeduplicatedItem);
+
+						// copy apis which are selected in No-Deduplicated
+						JMenuItem copySelectedApisNoDeduplicatedItem = new JMenuItem("Copy Selected APIs (No-Deduplicated)");
+						copyApisNoDeduplicatedSubMenu.add(copySelectedApisNoDeduplicatedItem);
+
+						// if marked rows >= 1 then add the menu item
+						if (markedRowsCounter >= 1) {
+                            // copy apis which are marked in No-Deduplicated
+                            JMenuItem copyMarkedApisNoDeduplicatedItem = new JMenuItem("Copy Marked APIs (No-Deduplicated)");
+							copyMarkedApisNoDeduplicatedItem.addActionListener(e->{
+								List<OriginalRequestResponse> markedOriginalRequestResponseList = getMarkedReqRespResponses();
+								CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(markedOriginalRequestResponseList, DeduplicationOperation.NO);
+								copyAPIsConfigDialog.setVisible(true);
+							});
+
+							copyApisNoDeduplicatedSubMenu.add(copyMarkedApisNoDeduplicatedItem);
+						}
+
+						// if marked rows >= 1 then add the menu item
+						if (markedRowsCounter >= 1) {
+                            // copy apis which are unmarked in No-Deduplicated
+                            JMenuItem copyUnmarkedApisNoDeduplicatedItem = new JMenuItem("Copy Unmarked APIs (No-Deduplicated)");
+							copyUnmarkedApisNoDeduplicatedItem.addActionListener(e->{
+								List<OriginalRequestResponse> unmarkedOriginalRequestResponseList = getUnMarkedRespResponses();
+								CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(unmarkedOriginalRequestResponseList, DeduplicationOperation.NO);
+								copyAPIsConfigDialog.setVisible(true);
+							});
+
+							copyApisNoDeduplicatedSubMenu.add(copyUnmarkedApisNoDeduplicatedItem);
+						}
+
+                        // if commented rows >= 1 then add the menu item
+                        if (commentedRowsCounter >= 1) {
+                            // copy apis which are commented in No-Deduplicated
+                            JMenuItem copyCommentedApisNoDeduplicatedItem = new JMenuItem("Copy Commented APIs (No-Deduplicated)");
+							copyCommentedApisNoDeduplicatedItem.addActionListener(e->{
+								List<OriginalRequestResponse> commentedOriginalRequestResponseList = getCommentedReqRespResponses();
+								CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(commentedOriginalRequestResponseList, DeduplicationOperation.NO);
+								copyAPIsConfigDialog.setVisible(true);
+
+							});
+                            copyApisNoDeduplicatedSubMenu.add(copyCommentedApisNoDeduplicatedItem);
+                        }
+
+						// init copy apis menus actionListeners
+						////////////////////////////////////////////////////////////////////////////////////////////////
+						copyAllApisDeduplicatedItem.addActionListener(e->{
+							List<OriginalRequestResponse> originalRequestResponseList = tableModel.getOriginalRequestResponseList();
+							CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(originalRequestResponseList, DeduplicationOperation.YES);
+							copyAPIsConfigDialog.setVisible(true);
+
+						});
+
+						copySelectedApisDeduplicatedItem.addActionListener(e->{
+							List<OriginalRequestResponse> selectedReqRespResponses = getSelectedReqRespResponses();
+							CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(selectedReqRespResponses, DeduplicationOperation.YES);
+							copyAPIsConfigDialog.setVisible(true);
+						});
+
+						copyAllApisNoDeduplicatedItem.addActionListener(e->{
+							List<OriginalRequestResponse> originalRequestResponseList = tableModel.getOriginalRequestResponseList();
+							CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(originalRequestResponseList, DeduplicationOperation.NO);
+							copyAPIsConfigDialog.setVisible(true);
+						});
+
+						copySelectedApisNoDeduplicatedItem.addActionListener(e->{
+							List<OriginalRequestResponse> selectedReqRespResponses = getSelectedReqRespResponses();
+							CopyAPIsConfigDialog copyAPIsConfigDialog = new CopyAPIsConfigDialog(selectedReqRespResponses, DeduplicationOperation.NO);
+							copyAPIsConfigDialog.setVisible(true);
+						});
+
+
+						copyApisMenu.add(copyApisDeduplicatedSubMenu);
+						copyApisMenu.add(copyApisNoDeduplicatedSubMenu);
+
+						contextMenu.add(copyApisMenu);
 						JMenuItem unmarkRowItem = new JMenuItem("Unmark Row" + appendix);
 						unmarkRowItem.addActionListener(e -> {
-							for (OriginalRequestResponse requestResponse : requestResponseList) {
+							for (OriginalRequestResponse requestResponse : selectedRequestResponseList) {
 								requestResponse.setMarked(false);
 							}
 						});
 						JMenuItem markRowItem = new JMenuItem("Mark Row" + appendix);
 						markRowItem.addActionListener(e -> {
-							for (OriginalRequestResponse requestResponse : requestResponseList) {
+							for (OriginalRequestResponse requestResponse : selectedRequestResponseList) {
 								requestResponse.setMarked(true);
 							}
 						});
 						JMenuItem repeatRequestItem = new JMenuItem("Repeat Request" + appendix);
 						repeatRequestItem.addActionListener(e -> {
-							Collections.sort(requestResponseList);
-							IHttpRequestResponse[] messages = new IHttpRequestResponse[requestResponseList.size()];
-							for (int i=0; i<requestResponseList.size(); i++) {
-								messages[i] = requestResponseList.get(i).getRequestResponse();
+							Collections.sort(selectedRequestResponseList);
+							IHttpRequestResponse[] messages = new IHttpRequestResponse[selectedRequestResponseList.size()];
+							for (int i=0; i<selectedRequestResponseList.size(); i++) {
+								messages[i] = selectedRequestResponseList.get(i).getRequestResponse();
 							}
 							GenericHelper.repeatRequests(messages, mainPanel.getConfigurationPanel());
 						});
 						JMenuItem deleteRowItem = new JMenuItem("Delete Row" + appendix);
 						deleteRowItem.addActionListener(e -> {
-							for (OriginalRequestResponse requestResponse : requestResponseList) {
+							for (OriginalRequestResponse requestResponse : selectedRequestResponseList) {
 								tableModel.deleteRequestResponse(requestResponse);
 							}
 						});
 						JMenuItem commentItem = new JMenuItem("Comment");
 						commentItem.addActionListener(e -> {
-							if (requestResponseList.size() > 0) {
-								JTextArea commentTextArea = new JTextArea(requestResponseList.get(0).getComment(), 2,
+							if (!selectedRequestResponseList.isEmpty()) {
+								JTextArea commentTextArea = new JTextArea(selectedRequestResponseList.get(0).getComment(), 2,
 										8);
 								JOptionPane.showMessageDialog(commentItem, new JScrollPane(commentTextArea), "Comment",
 										JOptionPane.INFORMATION_MESSAGE);
-								for (OriginalRequestResponse requestResponse : requestResponseList) {
+								for (OriginalRequestResponse requestResponse : selectedRequestResponseList) {
 									requestResponse.setComment(commentTextArea.getText());
 								}
 							}
 						});
+
 						if (rows.length == 1) {
-							if (requestResponseList.get(0).isMarked()) {
+							if (selectedRequestResponseList.get(0).isMarked()) {
 								contextMenu.add(unmarkRowItem);
 							} else {
 								contextMenu.add(markRowItem);
@@ -451,6 +629,7 @@ public class CenterPanel extends JPanel {
 							contextMenu.add(markRowItem);
 							contextMenu.add(unmarkRowItem);
 						}
+
 						contextMenu.add(repeatRequestItem);
 						contextMenu.add(deleteRowItem);
 						contextMenu.add(commentItem);
@@ -474,14 +653,10 @@ public class CenterPanel extends JPanel {
 	public void clearTablePressed() {
 		clearTableButton.setIcon(loaderImageIcon);
 		if (config.isRunning()) {
-			config.getAnalyzerThreadExecutor().execute(new Runnable() {
-
-				@Override
-				public void run() {
-					clearTable();
-					clearTableButton.setIcon(null);
-				}
-			});
+			config.getAnalyzerThreadExecutor().execute(() -> {
+                clearTable();
+                clearTableButton.setIcon(null);
+            });
 		} else {
 			clearTable();
 			clearTableButton.setIcon(null);
@@ -496,7 +671,7 @@ public class CenterPanel extends JPanel {
 	}
 
 	public ArrayList<OriginalRequestResponse> getFilteredRequestResponseList() {
-		ArrayList<OriginalRequestResponse> list = new ArrayList<OriginalRequestResponse>();
+		ArrayList<OriginalRequestResponse> list = new ArrayList<>();
 		for (int row = 0; row < table.getRowCount(); row++) {
 			OriginalRequestResponse requestResponse = tableModel
 					.getOriginalRequestResponse(table.convertRowIndexToModel(row));
@@ -504,7 +679,7 @@ public class CenterPanel extends JPanel {
 		}
 		return list;
 	}
-	
+
 	public void toggleSearchButtonText() {
 		if(searchButton.getIcon() == null) {
 			searchButton.setIcon(loaderImageIcon);
@@ -518,14 +693,9 @@ public class CenterPanel extends JPanel {
 		tableModel = new RequestTableModel();
 		table.setModel(tableModel);
 		config.setTableModel(tableModel);
-		sorter = new CustomRowSorter(this, tableModel, showOnlyMarked, showDuplicates, showBypassed, 
+		sorter = new CustomRowSorter(this, tableModel, showOnlyMarked, showDuplicates, showBypassed,
 				showPotentialBypassed, showNotBypassed, showNA, filterText, searchInPath, searchInRequest, searchInResponse, negativeSearch);
-		sorter.addRowSorterListener(new RowSorterListener() {
-			@Override
-			public void sorterChanged(RowSorterEvent e) {
-				updateTableFilterInfo();
-			}
-		});
+		sorter.addRowSorterListener(e -> updateTableFilterInfo());
         table.setRowSorter(sorter);
         updateColumnWidths();
 	}
@@ -542,7 +712,7 @@ public class CenterPanel extends JPanel {
 		}
 		tablePanel.revalidate();
 	}
-	
+
 	public void updateAmountOfPendingRequests(int amountOfPendingRequests) {
 		if(amountOfPendingRequests == 0) {
 			pendingRequestsLabel.setVisible(false);
@@ -551,8 +721,8 @@ public class CenterPanel extends JPanel {
 			pendingRequestsLabel.setVisible(true);
 			pendingRequestsLabel.setText("Pending Requests Queue: " + amountOfPendingRequests);
 		}
-	} 
-	
+	}
+
 	private void changeRequestResponseView(boolean force) {
 		if (table.getSelectedRow() != -1) {
 			int modelRowIndex = table.convertRowIndexToModel(table.getSelectedRow());
@@ -650,13 +820,7 @@ public class CenterPanel extends JPanel {
 					}
 				}
 				updateDiffPane();
-				SwingUtilities.invokeLater(new Runnable() {
-
-					@Override
-					public void run() {
-						messageViewPanel.revalidate();
-					}
-				});
+				SwingUtilities.invokeLater(() -> messageViewPanel.revalidate());
 			}
 		}
 	}
@@ -669,7 +833,7 @@ public class CenterPanel extends JPanel {
 		return new JLabel(labelText, JLabel.CENTER);
 	}
 
-	private void updateColumnWidths() {		
+	private void updateColumnWidths() {
 		for (Column column : Column.values()) {
 			if (!columnSet.contains(column)) {
 				for(int i=0; i<table.getColumnModel().getColumnCount(); i++) {
@@ -701,7 +865,7 @@ public class CenterPanel extends JPanel {
 			}
 		}
 	}
-	
+
 	private int getColumnIdByName(Column columnName) {
 		for(int i=0; i<table.getColumnModel().getColumnCount(); i++) {
 			String currentColumnName = table.getColumnModel().getColumn(i).getHeaderValue().toString();
@@ -711,7 +875,7 @@ public class CenterPanel extends JPanel {
 		}
 		return -1;
 	}
-	
+
 	private void showTableFilterDialog(Component parent) {
 		JPanel inputPanel = new JPanel();
 		inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.PAGE_AXIS));
@@ -722,19 +886,19 @@ public class CenterPanel extends JPanel {
 		inputPanel.add(showPotentialBypassed);
 		inputPanel.add(showNotBypassed);
 		inputPanel.add(showNA);
-		
+
 		inputPanel.add(new JLabel(" "));
 		inputPanel.add(new JSeparator(SwingConstants.HORIZONTAL));
 		inputPanel.add(new JLabel(" "));
 		inputPanel.add(new JLabel("Search Options"));
 		inputPanel.add(searchInPath);
 		inputPanel.add(searchInRequest);
-		inputPanel.add(searchInResponse);	
+		inputPanel.add(searchInResponse);
 		inputPanel.add(negativeSearch);
 		JOptionPane.showConfirmDialog(parent, inputPanel, "Table Filters", JOptionPane.CLOSED_OPTION);
-		
+
 	}
-	
+
 	private void showTableSettingsDialog(Component parent) {
 		JPanel inputPanel = new JPanel();
 		inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.PAGE_AXIS));
