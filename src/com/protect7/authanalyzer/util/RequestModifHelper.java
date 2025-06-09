@@ -16,6 +16,7 @@ import javax.swing.JOptionPane;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import com.protect7.authanalyzer.entities.MatchAndReplace;
@@ -23,6 +24,7 @@ import com.protect7.authanalyzer.entities.Session;
 import com.protect7.authanalyzer.entities.Token;
 import com.protect7.authanalyzer.entities.TokenLocation;
 import com.protect7.authanalyzer.entities.TokenPriority;
+import com.protect7.authanalyzer.entities.JsonParameterReplace;
 import burp.BurpExtender;
 import burp.IParameter;
 import burp.IRequestInfo;
@@ -187,6 +189,8 @@ public class RequestModifHelper {
 	public static byte[] getModifiedRequest(byte[] originalRequest, Session session, TokenPriority tokenPriority) {
 		IRequestInfo originalRequestInfo = BurpExtender.callbacks.getHelpers().analyzeRequest(originalRequest);
 		byte[] modifiedRequest = applyMatchesAndReplaces(session, originalRequest);
+		// Apply JSON parameter replacements
+		modifiedRequest = applyJsonParameterReplacements(modifiedRequest, originalRequestInfo, session);
 		for (Token token : session.getTokens()) {
 			if (token.getValue() != null || token.isRemove() || token.isPromptForInput()) {
 				modifiedRequest = getModifiedRequest(modifiedRequest, originalRequestInfo, session, token, tokenPriority);
@@ -406,5 +410,90 @@ public class RequestModifHelper {
 		catch (Exception e) {
 			return false;
 		}
+	}
+	
+	private static byte[] applyJsonParameterReplacements(byte[] request, IRequestInfo originalRequestInfo, Session session) {
+		if(session.getJsonParameterReplaceList().size() > 0 && originalRequestInfo.getContentType() == IRequestInfo.CONTENT_TYPE_JSON) {
+			try {
+				String bodyAsString = new String(
+						Arrays.copyOfRange(request, originalRequestInfo.getBodyOffset(), request.length));
+				
+				// 使用JSONPath库解析JSON文档
+				com.jayway.jsonpath.DocumentContext jsonDocument = com.jayway.jsonpath.JsonPath.parse(bodyAsString);
+				
+				boolean modified = false;
+				for(JsonParameterReplace jsonParamReplace : session.getJsonParameterReplaceList()) {
+					String jsonPath = jsonParamReplace.getJsonPath();
+					
+					if (jsonPath == null || jsonPath.trim().isEmpty()) {
+						BurpExtender.callbacks.printOutput("跳过空的JSON Path");
+						continue;
+					}
+					
+					BurpExtender.callbacks.printOutput("正在应用JSON Path替换: " + 
+						jsonPath + " -> " + 
+						(jsonParamReplace.isRemove() ? "[删除]" : jsonParamReplace.getReplaceValue()));
+					
+					try {
+						if (jsonParamReplace.isRemove()) {
+							// 删除指定路径的元素
+							jsonDocument.delete(jsonPath);
+							modified = true;
+							BurpExtender.callbacks.printOutput("成功删除JSON路径: " + jsonPath);
+						} else {
+							// 替换指定路径的值
+							Object newValue = parseJsonValue(jsonParamReplace.getReplaceValue());
+							jsonDocument.set(jsonPath, newValue);
+							modified = true;
+							BurpExtender.callbacks.printOutput("成功替换JSON路径: " + jsonPath + " = " + newValue);
+						}
+					} catch (com.jayway.jsonpath.PathNotFoundException e) {
+						BurpExtender.callbacks.printOutput("JSON路径未找到: " + jsonPath + " - " + e.getMessage());
+					} catch (com.jayway.jsonpath.InvalidPathException e) {
+						BurpExtender.callbacks.printError("无效的JSON Path语法: " + jsonPath + " - " + e.getMessage());
+					} catch (Exception e) {
+						BurpExtender.callbacks.printError("处理JSON Path时发生错误: " + jsonPath + " - " + e.getMessage());
+					}
+				}
+				
+				if(modified) {
+					// 获取修改后的JSON字符串
+					String jsonBody = jsonDocument.jsonString();
+					List<String> headers = originalRequestInfo.getHeaders();
+					
+					// 更新Content-Length
+					for (int i = 0; i < headers.size(); i++) {
+						if (headers.get(i).startsWith("Content-Length:")) {
+							headers.set(i, "Content-Length: " + jsonBody.getBytes().length);
+							break;
+						}
+					}
+					
+					BurpExtender.callbacks.printOutput("JSON参数替换成功应用，共处理 " + session.getJsonParameterReplaceList().size() + " 个规则");
+					return BurpExtender.callbacks.getHelpers().buildHttpMessage(headers, jsonBody.getBytes());
+				}
+			} catch (Exception e) {
+				BurpExtender.callbacks.printError("无法应用JSON参数替换。错误信息: " + e.getMessage());
+				e.printStackTrace();
+			}
+		}
+		return request;
+	}
+	
+	private static Object parseJsonValue(String value) {
+		if (value == null) {
+			return null;
+		}
+		
+		String trimmedValue = value.trim();
+		
+		// 只有明确指定null时才返回null，其他所有值都作为字符串处理
+		if("null".equalsIgnoreCase(trimmedValue)) {
+			return null;
+		}
+		
+		// 所有其他值都作为字符串返回，包括数字、布尔值等
+		// 这样更具通用性，服务端通常能正确解析带引号的数值
+		return value;
 	}
 }
