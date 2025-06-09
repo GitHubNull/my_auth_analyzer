@@ -10,6 +10,7 @@
   * [Prompt for Input](#prompt-for-input)
 - [Parameter Replacement](#parameter-replacement)
   * [Replacement Location](#replacement-location)
+  * [Advanced Parameter Replacements](#advanced-parameter-replacements)
 - [Parameter removement](#parameter-removement)
 - [Sample Usage](#sample-usage)
   * [Auto extract session Cookie](#auto-extract-session-cookie)
@@ -22,6 +23,7 @@
   * [Test anonymous sessions](#test-anonymous-sessions)
   * [Test CORS configuration](#test-cors-configuration)
   * [Test CSRF Check mechanism](#test-csrf-check-mechanism)
+  * [Advanced Parameter Replacement Usage](#advanced-parameter-replacement-usage)
   * [Verify the Bypass Status](#verify-the-bypass-status)
 - [Processing Filter](#processing-filter)
 - [Bypass Detection](#bypass-detection)
@@ -32,7 +34,7 @@
 The Burp extension helps you to find authorization bugs. Just navigate through the web application with a high privileged user and let the Auth Analyzer repeat your requests for any defined non-privileged user. With the possibility to define Parameters the Auth Analyzer is able to extract and replace parameter values automatically. With this for instance, CSRF tokens or even whole session characteristics can be auto extracted from responses and replaced in further requests. Each response will be analyzed and tagged on its bypass status. 
 
 ## Why should I use Auth Analyzer?
-There are other existing Burp Extensions doing basically similar stuff. However, the force of the parameter feature and automatic value extraction is the main reason for choosing Auth Analyzer. With this you don’t have to know the content of the data which must be exchanged. You can easily define your parameters and cookies and Auth Analyzer will catch on the fly the values needed. The Auth Analyzer does not perform any preflight requests. It does basically just the same thing as your web app. With your defined user roles / sessions.
+There are other existing Burp Extensions doing basically similar stuff. However, the force of the parameter feature and automatic value extraction is the main reason for choosing Auth Analyzer. With this you don't have to know the content of the data which must be exchanged. You can easily define your parameters and cookies and Auth Analyzer will catch on the fly the values needed. The Auth Analyzer does not perform any preflight requests. It does basically just the same thing as your web app. With your defined user roles / sessions.
 
 ## GUI Overview
 (1) Create or Clone a Session for every user you want to test.
@@ -108,6 +110,28 @@ Per default the parameter value will be replaced at each location. However, clic
 
 ![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_replace_location.png)
 
+### Advanced Parameter Replacements
+In addition to the standard parameter replacement methods, Auth Analyzer provides advanced features for specific parameter formats:
+
+#### JSON Parameter Replacement
+Auth Analyzer supports advanced JSON parameter replacement using standard JSON Path expressions. This feature allows you to precisely target specific JSON elements for replacement or removal:
+
+* **JSON Path Support**: Use standard JSON Path syntax (e.g., `$.user.name`, `$.store.book[0].title`, `$..price`)
+* **Nested Object Handling**: Replace parameters in deeply nested JSON structures
+* **Array Support**: Target specific array elements or use wildcards for multiple replacements
+* **Conditional Replacement**: Apply replacements based on specific conditions
+* **Parameter Removal**: Remove specific JSON parameters completely
+
+#### Form Parameter Replacement
+Auth Analyzer now supports dedicated Form parameter replacement for both standard form data formats:
+
+* **URL-Encoded Forms**: Handle `application/x-www-form-urlencoded` format parameters
+* **Multipart Forms**: Process `multipart/form-data` format parameters (including file uploads)
+* **Parameter-Specific Operations**: Replace or remove specific form parameters by name
+* **Case-Sensitive Matching**: Exact parameter name matching for precise control
+* **Form Data Reconstruction**: Properly rebuild form requests after parameter modifications
+
+Both advanced replacement features can be configured through dedicated dialog interfaces accessible from the Session Panel via "JSON 参数替换" and "Form 参数替换" buttons respectively.
 
 ## Parameter removement
 The defined parameter can be removed completely for instance to test CSRF check mechanisms. 
@@ -168,6 +192,46 @@ A specified parameter can be removed by selecting the `Remove Checkbox`. This ca
 
 ![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/remove_csrf.png)
 
+### Advanced Parameter Replacement Usage
+
+#### JSON Parameter Replacement Examples
+Configure JSON parameter replacements to modify specific JSON fields in request bodies:
+
+**Replace User ID in nested JSON**:
+- JSON Path: `$.user.id`  
+- Replace Value: `12345`
+- Remove: No
+
+**Remove Authentication Token**:
+- JSON Path: `$.auth.token`
+- Replace Value: (empty)
+- Remove: Yes
+
+**Replace Array Element**:
+- JSON Path: `$.items[0].price`
+- Replace Value: `99.99` 
+- Remove: No
+
+#### Form Parameter Replacement Examples
+Configure Form parameter replacements to modify form data in request bodies:
+
+**Replace Username Parameter**:
+- Parameter Name: `username`
+- Replace Value: `admin`
+- Remove: No
+
+**Remove CSRF Token**:
+- Parameter Name: `csrf_token`
+- Replace Value: (empty)
+- Remove: Yes
+
+**Replace User Role**:
+- Parameter Name: `role`
+- Replace Value: `administrator`
+- Remove: No
+
+These advanced features work alongside the standard parameter replacement system and can be used simultaneously to handle complex authorization testing scenarios.
+
 ### Verify the Bypass Status
 The Auth Analyzer provides a build in comparison view to verify the differences between two responses. Just mark the message you want to analyze and change the message view `(1)`. You are now able to compare the two requests `(2) (3)`. The built in `Diff` Feature will calculate and show the differences between the two requests in real time `(4)`
 ![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/compare_view.png)
@@ -183,7 +247,7 @@ The Auth Analyzer should process two types of requests / responses:
 
 * The requested resource should not be accessible by the defined session(s)
 
-For instance, we don’t want to process a static JavaScript file because it is accessible for everyone and (hopefully) does not contain any protected data. To achieve this, we can set following types of filters:
+For instance, we don't want to process a static JavaScript file because it is accessible for everyone and (hopefully) does not contain any protected data. To achieve this, we can set following types of filters:
 *	Only In Scope (only requests to the set Scope will be processed)
 *	Only Proxy Traffic (only requests to the "Proxy History" will be processed)
 *	Exclude Filetypes (specified Filetypes can be excluded)
@@ -206,6 +270,9 @@ For instance, we don’t want to process a static JavaScript file because it is 
 *	Set any amount of parameters to replace
 *	Define how the parameter value will be discovered (automatic, static, prompt for input, from to string)
 *	Remove a specified parameter
+*	**Advanced JSON Parameter Replacement with JSON Path support**
+*	**Form Parameter Replacement for URL-encoded and Multipart form data**
+*	**Parameter-specific replacement and removal operations**
 *	Detailed Filter Rules
 *	Detailed Status Panel for each Session
 *	Pause each Session separately
