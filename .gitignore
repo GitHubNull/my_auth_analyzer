@@ -4,3 +4,5 @@ debug.log
 .settings/
 .project
 .classpath
+.vscode/
+.idea/
