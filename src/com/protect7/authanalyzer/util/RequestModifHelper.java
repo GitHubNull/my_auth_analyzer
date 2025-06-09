@@ -1,6 +1,7 @@
 package com.protect7.authanalyzer.util;
 
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -23,9 +24,25 @@ import com.protect7.authanalyzer.entities.TokenLocation;
 import com.protect7.authanalyzer.entities.TokenPriority;
 import com.protect7.authanalyzer.entities.JsonParameterReplace;
 import com.protect7.authanalyzer.entities.FormParameterReplace;
+import com.protect7.authanalyzer.entities.XmlParameterReplace;
 import burp.BurpExtender;
 import burp.IParameter;
 import burp.IRequestInfo;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 public class RequestModifHelper {
 	
@@ -191,6 +208,8 @@ public class RequestModifHelper {
 		modifiedRequest = applyJsonParameterReplacements(modifiedRequest, originalRequestInfo, session);
 		// Apply Form parameter replacements
 		modifiedRequest = applyFormParameterReplacements(modifiedRequest, originalRequestInfo, session);
+		// Apply XML parameter replacements
+		modifiedRequest = applyXmlParameterReplacements(modifiedRequest, originalRequestInfo, session);
 		for (Token token : session.getTokens()) {
 			if (token.getValue() != null || token.isRemove() || token.isPromptForInput()) {
 				modifiedRequest = getModifiedRequest(modifiedRequest, originalRequestInfo, session, token, tokenPriority);
@@ -585,6 +604,121 @@ public class RequestModifHelper {
 					BurpExtender.callbacks.printError("无法应用Form参数替换。错误信息: " + e.getMessage());
 					e.printStackTrace();
 				}
+			}
+		}
+		return request;
+	}
+	
+	private static byte[] applyXmlParameterReplacements(byte[] request, IRequestInfo originalRequestInfo, Session session) {
+		if(session.getXmlParameterReplaceList().size() > 0 && originalRequestInfo.getContentType() == IRequestInfo.CONTENT_TYPE_XML) {
+			try {
+				String bodyAsString = new String(
+						Arrays.copyOfRange(request, originalRequestInfo.getBodyOffset(), request.length));
+				
+				// 解析XML文档
+				DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+				factory.setNamespaceAware(true);
+				DocumentBuilder builder = factory.newDocumentBuilder();
+				Document document = builder.parse(new InputSource(new StringReader(bodyAsString)));
+				
+				// 创建XPath对象
+				XPathFactory xPathFactory = XPathFactory.newInstance();
+				XPath xpath = xPathFactory.newXPath();
+				
+				boolean modified = false;
+				for(XmlParameterReplace xmlParamReplace : session.getXmlParameterReplaceList()) {
+					String xpathExpression = xmlParamReplace.getXpath();
+					
+					if (xpathExpression == null || xpathExpression.trim().isEmpty()) {
+						BurpExtender.callbacks.printOutput("跳过空的XPath表达式");
+						continue;
+					}
+					
+					BurpExtender.callbacks.printOutput("正在应用XML参数替换: " + 
+						xpathExpression + " -> " + 
+						(xmlParamReplace.isRemove() ? "[删除]" : xmlParamReplace.getReplaceValue()));
+					
+					try {
+						XPathExpression expression = xpath.compile(xpathExpression);
+						
+						if (xmlParamReplace.isRemove()) {
+							// 删除匹配的节点
+							NodeList nodes = (NodeList) expression.evaluate(document, XPathConstants.NODESET);
+							for (int i = nodes.getLength() - 1; i >= 0; i--) {
+								Node node = nodes.item(i);
+								if (node.getNodeType() == Node.ATTRIBUTE_NODE) {
+									// 如果是属性节点，从父元素中移除属性
+									Node parentNode = node.getParentNode();
+									if (parentNode != null) {
+										parentNode.getAttributes().removeNamedItem(node.getNodeName());
+										modified = true;
+									}
+								} else {
+									// 如果是元素节点，从父节点中移除
+									Node parentNode = node.getParentNode();
+									if (parentNode != null) {
+										parentNode.removeChild(node);
+										modified = true;
+									}
+								}
+							}
+							BurpExtender.callbacks.printOutput("成功删除XML节点: " + xpathExpression);
+						} else {
+							// 替换节点值或属性值
+							String newValue = xmlParamReplace.getReplaceValue();
+							NodeList nodes = (NodeList) expression.evaluate(document, XPathConstants.NODESET);
+							for (int i = 0; i < nodes.getLength(); i++) {
+								Node node = nodes.item(i);
+								if (node.getNodeType() == Node.ATTRIBUTE_NODE) {
+									// 如果是属性节点，设置属性值
+									node.setNodeValue(newValue);
+									modified = true;
+								} else if (node.getNodeType() == Node.ELEMENT_NODE) {
+									// 如果是元素节点，设置文本内容
+									node.setTextContent(newValue);
+									modified = true;
+								} else if (node.getNodeType() == Node.TEXT_NODE) {
+									// 如果是文本节点，设置节点值
+									node.setNodeValue(newValue);
+									modified = true;
+								}
+							}
+							BurpExtender.callbacks.printOutput("成功替换XML节点: " + xpathExpression + " = " + newValue);
+						}
+					} catch (Exception e) {
+						BurpExtender.callbacks.printError("处理XPath表达式时发生错误: " + xpathExpression + " - " + e.getMessage());
+					}
+				}
+				
+				if(modified) {
+					// 将修改后的XML文档转换回字符串
+					TransformerFactory transformerFactory = TransformerFactory.newInstance();
+					Transformer transformer = transformerFactory.newTransformer();
+					transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
+					transformer.setOutputProperty(OutputKeys.INDENT, "no");
+					
+					DOMSource source = new DOMSource(document);
+					StringWriter writer = new StringWriter();
+					StreamResult result = new StreamResult(writer);
+					transformer.transform(source, result);
+					
+					String xmlBody = writer.toString();
+					List<String> headers = originalRequestInfo.getHeaders();
+					
+					// 更新Content-Length
+					for (int i = 0; i < headers.size(); i++) {
+						if (headers.get(i).startsWith("Content-Length:")) {
+							headers.set(i, "Content-Length: " + xmlBody.getBytes().length);
+							break;
+						}
+					}
+					
+					BurpExtender.callbacks.printOutput("XML参数替换成功应用，共处理 " + session.getXmlParameterReplaceList().size() + " 个规则");
+					return BurpExtender.callbacks.getHelpers().buildHttpMessage(headers, xmlBody.getBytes());
+				}
+			} catch (Exception e) {
+				BurpExtender.callbacks.printError("无法应用XML参数替换。错误信息: " + e.getMessage());
+				e.printStackTrace();
 			}
 		}
 		return request;

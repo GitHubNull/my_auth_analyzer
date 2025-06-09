@@ -27,12 +27,14 @@ import com.protect7.authanalyzer.entities.Token;
 import com.protect7.authanalyzer.gui.dialog.MatchAndReplaceDialog;
 import com.protect7.authanalyzer.gui.dialog.JsonParameterReplaceDialog;
 import com.protect7.authanalyzer.gui.dialog.FormParameterReplaceDialog;
+import com.protect7.authanalyzer.gui.dialog.XmlParameterReplaceDialog;
 import com.protect7.authanalyzer.gui.main.MainPanel;
 import com.protect7.authanalyzer.gui.util.HintCheckBox;
 import com.protect7.authanalyzer.gui.util.PlaceholderTextArea;
 import com.protect7.authanalyzer.gui.util.PlaceholderTextField;
 import com.protect7.authanalyzer.util.GenericHelper;
 import com.protect7.authanalyzer.util.Globals;
+import com.protect7.authanalyzer.entities.XmlParameterReplace;
 
 public class SessionPanel extends JPanel {
 
@@ -52,6 +54,7 @@ public class SessionPanel extends JPanel {
 	private final JButton matchAndReplaceButton;
 	private final JButton jsonParameterReplaceButton;
 	private final JButton formParameterReplaceButton;
+	private final JButton xmlParameterReplaceButton;
 	private final JPanel sessionPanel = new JPanel();
 	private final StatusPanel statusPanel = new StatusPanel();
 	private final GridBagConstraints c = new GridBagConstraints();
@@ -59,6 +62,7 @@ public class SessionPanel extends JPanel {
 	private ArrayList<MatchAndReplace> matchAndReplaceList = new ArrayList<MatchAndReplace>();
 	private ArrayList<JsonParameterReplace> jsonParameterReplaceList = new ArrayList<JsonParameterReplace>();
 	private ArrayList<FormParameterReplace> formParameterReplaceList = new ArrayList<FormParameterReplace>();
+	private ArrayList<XmlParameterReplace> xmlParameterReplaceList = new ArrayList<XmlParameterReplace>();
 	private final MainPanel mainPanel;
 
 	public SessionPanel(String sessionName, MainPanel mainPanel) {
@@ -149,6 +153,11 @@ public class SessionPanel extends JPanel {
 			new FormParameterReplaceDialog(this);
 		});
 		buttonPanel.add(formParameterReplaceButton);
+		xmlParameterReplaceButton = new JButton("XML 参数替换");
+		xmlParameterReplaceButton.addActionListener(e -> {
+			new XmlParameterReplaceDialog(this);
+		});
+		buttonPanel.add(xmlParameterReplaceButton);
 		JButton infoButton = new JButton("?");
 		infoButton.addActionListener(e -> {
 			
@@ -211,6 +220,15 @@ public class SessionPanel extends JPanel {
 		}
 		else {
 			formParameterReplaceButton.setText("Form 参数替换");
+		}
+	}
+
+	public void updateXmlParameterReplaceButtonText() {
+		if(xmlParameterReplaceList.size() > 0) {
+			xmlParameterReplaceButton.setText("XML 参数替换 (" + xmlParameterReplaceList.size() + ")");
+		}
+		else {
+			xmlParameterReplaceButton.setText("XML 参数替换");
 		}
 	}
 
@@ -373,6 +391,11 @@ public class SessionPanel extends JPanel {
 		updateFormParameterReplaceButtonText();
 	}
 	
+	public void setXmlParameterReplaceList(ArrayList<XmlParameterReplace> xmlParameterReplaceList) {
+		this.xmlParameterReplaceList = xmlParameterReplaceList;
+		updateXmlParameterReplaceButtonText();
+	}
+	
 	public ArrayList<MatchAndReplace> getMatchAndReplaceList() {
 		return matchAndReplaceList;
 	}
@@ -383,6 +406,10 @@ public class SessionPanel extends JPanel {
 
 	public ArrayList<FormParameterReplace> getFormParameterReplaceList() {
 		return formParameterReplaceList;
+	}
+	
+	public ArrayList<XmlParameterReplace> getXmlParameterReplaceList() {
+		return xmlParameterReplaceList;
 	}
 	
 	public URL getScopeUrl() {
