@@ -1,0 +1,85 @@
+name: 自动发布版本
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送以v开头的tag时触发（如 v1.8.0）
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Java环境
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '8'
+        
+    - name: 缓存Maven依赖
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: 编译和打包
+      run: mvn clean package -DskipTests
+      
+    - name: 获取版本号
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+    - name: 准备发布文件
+      run: |
+        mkdir -p release
+        cp target/myAuthAnalyzer-*-jar-with-dependencies.jar release/
+        # 重命名为更简洁的文件名
+        cd release
+        for file in myAuthAnalyzer-*-jar-with-dependencies.jar; do
+          if [ -f "$file" ]; then
+            mv "$file" "myAuthAnalyzer-${{ steps.get_version.outputs.VERSION }}.jar"
+          fi
+        done
+        
+    - name: 创建发布说明
+      id: release_notes
+      run: |
+        echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+        echo "## 🚀 版本 ${{ steps.get_version.outputs.VERSION }} 发布" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### 📦 安装方法" >> $GITHUB_OUTPUT
+        echo "1. 下载 \`myAuthAnalyzer-${{ steps.get_version.outputs.VERSION }}.jar\` 文件" >> $GITHUB_OUTPUT
+        echo "2. 在 Burp Suite 中，进入 \`Extender\` → \`Extensions\`" >> $GITHUB_OUTPUT
+        echo "3. 点击 \`Add\` 按钮，选择下载的jar文件" >> $GITHUB_OUTPUT
+        echo "4. 确认扩展已成功加载" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### 📋 更新内容" >> $GITHUB_OUTPUT
+        echo "请查看提交历史了解详细更新内容。" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "---" >> $GITHUB_OUTPUT
+        echo "**构建时间**: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+        echo "**Java版本**: $(java -version 2>&1 | head -n 1)" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: 创建GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        name: "Release ${{ steps.get_version.outputs.VERSION }}"
+        body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+        files: |
+          release/*.jar
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 发布完成通知
+      run: |
+        echo "✅ 版本 ${{ steps.get_version.outputs.VERSION }} 已成功发布！"
+        echo "📦 发布文件已上传到GitHub Releases"
+        echo "🔗 Release链接: https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.VERSION }}" 

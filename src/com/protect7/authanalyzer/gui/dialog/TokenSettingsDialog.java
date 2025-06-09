@@ -8,9 +8,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.JTextField;
-import javax.swing.event.DocumentListener;
-import javax.swing.event.DocumentEvent;
-
 import com.protect7.authanalyzer.entities.AutoExtractLocation;
 import com.protect7.authanalyzer.entities.FromToExtractLocation;
 import com.protect7.authanalyzer.entities.TokenLocation;
