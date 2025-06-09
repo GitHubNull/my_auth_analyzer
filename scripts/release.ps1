@@ -110,8 +110,8 @@ Write-ColorOutput "Starting release process..." "Cyan"
 if ($Version -ne $pomVersion) {
     Write-ColorOutput "Updating pom.xml version to $Version..." "Yellow"
     
-    $pomContent = $pomContent -replace '<version>[^<]*</version>', "<version>$Version</version>", 1
-    Set-Content "pom.xml" $pomContent -Encoding UTF8
+    $newPomContent = $pomContent -replace '<version>[^<]*</version>', "<version>$Version</version>"
+    Set-Content "pom.xml" $newPomContent -Encoding UTF8
     
     git add pom.xml
     git commit -m "chore: bump version to $Version"
