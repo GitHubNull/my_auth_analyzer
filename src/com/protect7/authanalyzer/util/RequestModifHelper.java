@@ -25,6 +25,7 @@ import com.protect7.authanalyzer.entities.Token;
 import com.protect7.authanalyzer.entities.TokenLocation;
 import com.protect7.authanalyzer.entities.TokenPriority;
 import com.protect7.authanalyzer.entities.JsonParameterReplace;
+import com.protect7.authanalyzer.entities.FormParameterReplace;
 import burp.BurpExtender;
 import burp.IParameter;
 import burp.IRequestInfo;
@@ -191,6 +192,8 @@ public class RequestModifHelper {
 		byte[] modifiedRequest = applyMatchesAndReplaces(session, originalRequest);
 		// Apply JSON parameter replacements
 		modifiedRequest = applyJsonParameterReplacements(modifiedRequest, originalRequestInfo, session);
+		// Apply Form parameter replacements
+		modifiedRequest = applyFormParameterReplacements(modifiedRequest, originalRequestInfo, session);
 		for (Token token : session.getTokens()) {
 			if (token.getValue() != null || token.isRemove() || token.isPromptForInput()) {
 				modifiedRequest = getModifiedRequest(modifiedRequest, originalRequestInfo, session, token, tokenPriority);
@@ -418,8 +421,8 @@ public class RequestModifHelper {
 				String bodyAsString = new String(
 						Arrays.copyOfRange(request, originalRequestInfo.getBodyOffset(), request.length));
 				
-				// 使用JSONPath库解析JSON文档
-				com.jayway.jsonpath.DocumentContext jsonDocument = com.jayway.jsonpath.JsonPath.parse(bodyAsString);
+				// 使用Gson解析JSON文档
+				JsonElement jsonElement = JsonParser.parseString(bodyAsString);
 				
 				boolean modified = false;
 				for(JsonParameterReplace jsonParamReplace : session.getJsonParameterReplaceList()) {
@@ -430,35 +433,29 @@ public class RequestModifHelper {
 						continue;
 					}
 					
-					BurpExtender.callbacks.printOutput("正在应用JSON Path替换: " + 
+					BurpExtender.callbacks.printOutput("正在应用JSON参数替换: " + 
 						jsonPath + " -> " + 
 						(jsonParamReplace.isRemove() ? "[删除]" : jsonParamReplace.getReplaceValue()));
 					
 					try {
 						if (jsonParamReplace.isRemove()) {
-							// 删除指定路径的元素
-							jsonDocument.delete(jsonPath);
-							modified = true;
-							BurpExtender.callbacks.printOutput("成功删除JSON路径: " + jsonPath);
+							// 删除指定路径的参数
+							modified = removeJsonParameter(jsonElement, jsonPath) || modified;
+							BurpExtender.callbacks.printOutput("成功删除JSON参数: " + jsonPath);
 						} else {
 							// 替换指定路径的值
-							Object newValue = parseJsonValue(jsonParamReplace.getReplaceValue());
-							jsonDocument.set(jsonPath, newValue);
-							modified = true;
-							BurpExtender.callbacks.printOutput("成功替换JSON路径: " + jsonPath + " = " + newValue);
+							String newValue = jsonParamReplace.getReplaceValue();
+							modified = setJsonParameter(jsonElement, jsonPath, newValue) || modified;
+							BurpExtender.callbacks.printOutput("成功替换JSON参数: " + jsonPath + " = " + newValue);
 						}
-					} catch (com.jayway.jsonpath.PathNotFoundException e) {
-						BurpExtender.callbacks.printOutput("JSON路径未找到: " + jsonPath + " - " + e.getMessage());
-					} catch (com.jayway.jsonpath.InvalidPathException e) {
-						BurpExtender.callbacks.printError("无效的JSON Path语法: " + jsonPath + " - " + e.getMessage());
 					} catch (Exception e) {
-						BurpExtender.callbacks.printError("处理JSON Path时发生错误: " + jsonPath + " - " + e.getMessage());
+						BurpExtender.callbacks.printError("处理JSON参数时发生错误: " + jsonPath + " - " + e.getMessage());
 					}
 				}
 				
 				if(modified) {
 					// 获取修改后的JSON字符串
-					String jsonBody = jsonDocument.jsonString();
+					String jsonBody = jsonElement.toString();
 					List<String> headers = originalRequestInfo.getHeaders();
 					
 					// 更新Content-Length
@@ -480,20 +477,119 @@ public class RequestModifHelper {
 		return request;
 	}
 	
-	private static Object parseJsonValue(String value) {
-		if (value == null) {
-			return null;
+	private static boolean removeJsonParameter(JsonElement jsonElement, String parameterName) {
+		if (jsonElement.isJsonObject()) {
+			JsonObject jsonObject = jsonElement.getAsJsonObject();
+			if (jsonObject.has(parameterName)) {
+				jsonObject.remove(parameterName);
+				return true;
+			}
+			// 递归查找嵌套对象
+			for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
+				if (removeJsonParameter(entry.getValue(), parameterName)) {
+					return true;
+				}
+			}
+		} else if (jsonElement.isJsonArray()) {
+			JsonArray jsonArray = jsonElement.getAsJsonArray();
+			for (JsonElement element : jsonArray) {
+				if (removeJsonParameter(element, parameterName)) {
+					return true;
+				}
+			}
 		}
-		
-		String trimmedValue = value.trim();
-		
-		// 只有明确指定null时才返回null，其他所有值都作为字符串处理
-		if("null".equalsIgnoreCase(trimmedValue)) {
-			return null;
+		return false;
+	}
+	
+	private static boolean setJsonParameter(JsonElement jsonElement, String parameterName, String newValue) {
+		if (jsonElement.isJsonObject()) {
+			JsonObject jsonObject = jsonElement.getAsJsonObject();
+			if (jsonObject.has(parameterName)) {
+				jsonObject.addProperty(parameterName, newValue);
+				return true;
+			}
+			// 递归查找嵌套对象
+			for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
+				if (setJsonParameter(entry.getValue(), parameterName, newValue)) {
+					return true;
+				}
+			}
+		} else if (jsonElement.isJsonArray()) {
+			JsonArray jsonArray = jsonElement.getAsJsonArray();
+			for (JsonElement element : jsonArray) {
+				if (setJsonParameter(element, parameterName, newValue)) {
+					return true;
+				}
+			}
 		}
-		
-		// 所有其他值都作为字符串返回，包括数字、布尔值等
-		// 这样更具通用性，服务端通常能正确解析带引号的数值
-		return value;
+		return false;
+	}
+	
+	private static byte[] applyFormParameterReplacements(byte[] request, IRequestInfo originalRequestInfo, Session session) {
+		if(session.getFormParameterReplaceList().size() > 0) {
+			byte requestType = originalRequestInfo.getContentType();
+			// 只处理form类型的请求
+			if(requestType == IRequestInfo.CONTENT_TYPE_URL_ENCODED || requestType == IRequestInfo.CONTENT_TYPE_MULTIPART) {
+				try {
+					byte[] modifiedRequest = request;
+					boolean modified = false;
+					
+					for(FormParameterReplace formParamReplace : session.getFormParameterReplaceList()) {
+						String parameterName = formParamReplace.getParameterName();
+						
+						if (parameterName == null || parameterName.trim().isEmpty()) {
+							BurpExtender.callbacks.printOutput("跳过空的参数名");
+							continue;
+						}
+						
+						BurpExtender.callbacks.printOutput("正在应用Form参数替换: " + 
+							parameterName + " -> " + 
+							(formParamReplace.isRemove() ? "[删除]" : formParamReplace.getReplaceValue()));
+						
+						try {
+							// 查找现有的参数
+							IParameter existingParam = null;
+							for (IParameter parameter : originalRequestInfo.getParameters()) {
+								if (parameter.getName().equals(parameterName) && 
+									(parameter.getType() == IParameter.PARAM_BODY)) {
+									existingParam = parameter;
+									break;
+								}
+							}
+							
+							if (existingParam != null) {
+								if (formParamReplace.isRemove()) {
+									// 删除参数
+									modifiedRequest = BurpExtender.callbacks.getHelpers().removeParameter(modifiedRequest, existingParam);
+									modified = true;
+									BurpExtender.callbacks.printOutput("成功删除Form参数: " + parameterName);
+								} else {
+									// 替换参数值
+									String newValue = formParamReplace.getReplaceValue();
+									IParameter newParameter = BurpExtender.callbacks.getHelpers().buildParameter(
+										parameterName, newValue, existingParam.getType());
+									modifiedRequest = BurpExtender.callbacks.getHelpers().updateParameter(modifiedRequest, newParameter);
+									modified = true;
+									BurpExtender.callbacks.printOutput("成功替换Form参数: " + parameterName + " = " + newValue);
+								}
+							} else {
+								BurpExtender.callbacks.printOutput("未找到Form参数: " + parameterName);
+							}
+						} catch (Exception e) {
+							BurpExtender.callbacks.printError("处理Form参数时发生错误: " + parameterName + " - " + e.getMessage());
+						}
+					}
+					
+					if(modified) {
+						BurpExtender.callbacks.printOutput("Form参数替换成功应用，共处理 " + session.getFormParameterReplaceList().size() + " 个规则");
+						return modifiedRequest;
+					}
+				} catch (Exception e) {
+					BurpExtender.callbacks.printError("无法应用Form参数替换。错误信息: " + e.getMessage());
+					e.printStackTrace();
+				}
+			}
+		}
+		return request;
 	}
 }

@@ -30,11 +30,12 @@ public class Session {
 	private ArrayList<Token> tokens = new ArrayList<Token>();
 	private ArrayList<MatchAndReplace> matchAndReplaceList = new ArrayList<MatchAndReplace>();
 	private ArrayList<JsonParameterReplace> jsonParameterReplaceList = new ArrayList<JsonParameterReplace>();
+	private ArrayList<FormParameterReplace> formParameterReplaceList = new ArrayList<FormParameterReplace>();
 	private final StatusPanel statusPanel;
 
 	public Session(String name, String headersToReplace, boolean removeHeaders, String headersToRemove, boolean filterRequestsWithSameHeader, boolean restrictToScope, 
 			URL scopeUrl, boolean testCors, ArrayList<Token> tokens, ArrayList<MatchAndReplace> matchAndReplaceList, 
-			ArrayList<JsonParameterReplace> jsonParameterReplaceList, StatusPanel statusPanel) {
+			ArrayList<JsonParameterReplace> jsonParameterReplaceList, ArrayList<FormParameterReplace> formParameterReplaceList, StatusPanel statusPanel) {
 		this.name = name;
 		this.removeHeaders = removeHeaders;
 		this.headersToReplace = headersToReplace;
@@ -46,6 +47,7 @@ public class Session {
 		this.setTokens(tokens);
 		this.matchAndReplaceList = matchAndReplaceList;
 		this.jsonParameterReplaceList = jsonParameterReplaceList;
+		this.formParameterReplaceList = formParameterReplaceList;
 		this.statusPanel = statusPanel;
 	}
 
@@ -203,5 +205,13 @@ public class Session {
 	
 	public void setJsonParameterReplaceList(ArrayList<JsonParameterReplace> jsonParameterReplaceList) {
 		this.jsonParameterReplaceList = jsonParameterReplaceList;
+	}
+
+	public ArrayList<FormParameterReplace> getFormParameterReplaceList() {
+		return formParameterReplaceList;
+	}
+
+	public void setFormParameterReplaceList(ArrayList<FormParameterReplace> formParameterReplaceList) {
+		this.formParameterReplaceList = formParameterReplaceList;
 	}
 }

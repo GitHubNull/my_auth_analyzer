@@ -22,9 +22,11 @@ import javax.swing.JSeparator;
 import javax.swing.UIManager;
 import com.protect7.authanalyzer.entities.MatchAndReplace;
 import com.protect7.authanalyzer.entities.JsonParameterReplace;
+import com.protect7.authanalyzer.entities.FormParameterReplace;
 import com.protect7.authanalyzer.entities.Token;
 import com.protect7.authanalyzer.gui.dialog.MatchAndReplaceDialog;
 import com.protect7.authanalyzer.gui.dialog.JsonParameterReplaceDialog;
+import com.protect7.authanalyzer.gui.dialog.FormParameterReplaceDialog;
 import com.protect7.authanalyzer.gui.main.MainPanel;
 import com.protect7.authanalyzer.gui.util.HintCheckBox;
 import com.protect7.authanalyzer.gui.util.PlaceholderTextArea;
@@ -49,12 +51,14 @@ public class SessionPanel extends JPanel {
 	private final JButton addTokenButton;
 	private final JButton matchAndReplaceButton;
 	private final JButton jsonParameterReplaceButton;
+	private final JButton formParameterReplaceButton;
 	private final JPanel sessionPanel = new JPanel();
 	private final StatusPanel statusPanel = new StatusPanel();
 	private final GridBagConstraints c = new GridBagConstraints();
 	private final ArrayList<TokenPanel> tokenPanels = new ArrayList<TokenPanel>();
 	private ArrayList<MatchAndReplace> matchAndReplaceList = new ArrayList<MatchAndReplace>();
 	private ArrayList<JsonParameterReplace> jsonParameterReplaceList = new ArrayList<JsonParameterReplace>();
+	private ArrayList<FormParameterReplace> formParameterReplaceList = new ArrayList<FormParameterReplace>();
 	private final MainPanel mainPanel;
 
 	public SessionPanel(String sessionName, MainPanel mainPanel) {
@@ -140,6 +144,11 @@ public class SessionPanel extends JPanel {
 			new JsonParameterReplaceDialog(this);
 		});
 		buttonPanel.add(jsonParameterReplaceButton);
+		formParameterReplaceButton = new JButton("Form 参数替换");
+		formParameterReplaceButton.addActionListener(e -> {
+			new FormParameterReplaceDialog(this);
+		});
+		buttonPanel.add(formParameterReplaceButton);
 		JButton infoButton = new JButton("?");
 		infoButton.addActionListener(e -> {
 			
@@ -193,6 +202,15 @@ public class SessionPanel extends JPanel {
 		}
 		else {
 			jsonParameterReplaceButton.setText("JSON 参数替换");
+		}
+	}
+
+	public void updateFormParameterReplaceButtonText() {
+		if(formParameterReplaceList.size() > 0) {
+			formParameterReplaceButton.setText("Form 参数替换 (" + formParameterReplaceList.size() + ")");
+		}
+		else {
+			formParameterReplaceButton.setText("Form 参数替换");
 		}
 	}
 
@@ -350,12 +368,21 @@ public class SessionPanel extends JPanel {
 		updateJsonParameterReplaceButtonText();
 	}
 	
+	public void setFormParameterReplaceList(ArrayList<FormParameterReplace> formParameterReplaceList) {
+		this.formParameterReplaceList = formParameterReplaceList;
+		updateFormParameterReplaceButtonText();
+	}
+	
 	public ArrayList<MatchAndReplace> getMatchAndReplaceList() {
 		return matchAndReplaceList;
 	}
 	
 	public ArrayList<JsonParameterReplace> getJsonParameterReplaceList() {
 		return jsonParameterReplaceList;
+	}
+
+	public ArrayList<FormParameterReplace> getFormParameterReplaceList() {
+		return formParameterReplaceList;
 	}
 	
 	public URL getScopeUrl() {
