@@ -1,4 +1,4 @@
- package com.protect7.authanalyzer.entities;
+package com.protect7.authanalyzer.entities;
 
 import java.net.URL;
 
@@ -29,10 +29,12 @@ public class Session {
 	private final HashMap<Integer, AnalyzerRequestResponse> requestResponseMap = new HashMap<>();
 	private ArrayList<Token> tokens = new ArrayList<Token>();
 	private ArrayList<MatchAndReplace> matchAndReplaceList = new ArrayList<MatchAndReplace>();
+	private ArrayList<JsonParameterReplace> jsonParameterReplaceList = new ArrayList<JsonParameterReplace>();
 	private final StatusPanel statusPanel;
 
 	public Session(String name, String headersToReplace, boolean removeHeaders, String headersToRemove, boolean filterRequestsWithSameHeader, boolean restrictToScope, 
-			URL scopeUrl, boolean testCors, ArrayList<Token> tokens, ArrayList<MatchAndReplace> matchAndReplaceList, StatusPanel statusPanel) {
+			URL scopeUrl, boolean testCors, ArrayList<Token> tokens, ArrayList<MatchAndReplace> matchAndReplaceList, 
+			ArrayList<JsonParameterReplace> jsonParameterReplaceList, StatusPanel statusPanel) {
 		this.name = name;
 		this.removeHeaders = removeHeaders;
 		this.headersToReplace = headersToReplace;
@@ -43,6 +45,7 @@ public class Session {
 		this.setScopeUrl(scopeUrl);
 		this.setTokens(tokens);
 		this.matchAndReplaceList = matchAndReplaceList;
+		this.jsonParameterReplaceList = jsonParameterReplaceList;
 		this.statusPanel = statusPanel;
 	}
 
@@ -192,5 +195,13 @@ public class Session {
 	
 	public void setMatchAndReplaceList(ArrayList<MatchAndReplace> matchAndReplaceList) {
 		this.matchAndReplaceList = matchAndReplaceList;
+	}
+	
+	public ArrayList<JsonParameterReplace> getJsonParameterReplaceList() {
+		return jsonParameterReplaceList;
+	}
+	
+	public void setJsonParameterReplaceList(ArrayList<JsonParameterReplace> jsonParameterReplaceList) {
+		this.jsonParameterReplaceList = jsonParameterReplaceList;
 	}
 }

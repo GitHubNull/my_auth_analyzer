@@ -21,8 +21,10 @@ import javax.swing.JPopupMenu;
 import javax.swing.JSeparator;
 import javax.swing.UIManager;
 import com.protect7.authanalyzer.entities.MatchAndReplace;
+import com.protect7.authanalyzer.entities.JsonParameterReplace;
 import com.protect7.authanalyzer.entities.Token;
 import com.protect7.authanalyzer.gui.dialog.MatchAndReplaceDialog;
+import com.protect7.authanalyzer.gui.dialog.JsonParameterReplaceDialog;
 import com.protect7.authanalyzer.gui.main.MainPanel;
 import com.protect7.authanalyzer.gui.util.HintCheckBox;
 import com.protect7.authanalyzer.gui.util.PlaceholderTextArea;
@@ -46,11 +48,13 @@ public class SessionPanel extends JPanel {
 	private final PlaceholderTextField restrictToScopeText = new PlaceholderTextField();
 	private final JButton addTokenButton;
 	private final JButton matchAndReplaceButton;
+	private final JButton jsonParameterReplaceButton;
 	private final JPanel sessionPanel = new JPanel();
 	private final StatusPanel statusPanel = new StatusPanel();
 	private final GridBagConstraints c = new GridBagConstraints();
 	private final ArrayList<TokenPanel> tokenPanels = new ArrayList<TokenPanel>();
 	private ArrayList<MatchAndReplace> matchAndReplaceList = new ArrayList<MatchAndReplace>();
+	private ArrayList<JsonParameterReplace> jsonParameterReplaceList = new ArrayList<JsonParameterReplace>();
 	private final MainPanel mainPanel;
 
 	public SessionPanel(String sessionName, MainPanel mainPanel) {
@@ -131,6 +135,11 @@ public class SessionPanel extends JPanel {
 			new MatchAndReplaceDialog(this);
 		});
 		buttonPanel.add(matchAndReplaceButton);
+		jsonParameterReplaceButton = new JButton("JSON 参数替换");
+		jsonParameterReplaceButton.addActionListener(e -> {
+			new JsonParameterReplaceDialog(this);
+		});
+		buttonPanel.add(jsonParameterReplaceButton);
 		JButton infoButton = new JButton("?");
 		infoButton.addActionListener(e -> {
 			
@@ -175,6 +184,15 @@ public class SessionPanel extends JPanel {
 		}
 		else {
 			matchAndReplaceButton.setText("Match and Replace");
+		}
+	}
+
+	public void updateJsonParameterReplaceButtonText() {
+		if(jsonParameterReplaceList.size() > 0) {
+			jsonParameterReplaceButton.setText("JSON 参数替换 (" + jsonParameterReplaceList.size() + ")");
+		}
+		else {
+			jsonParameterReplaceButton.setText("JSON 参数替换");
 		}
 	}
 
@@ -327,8 +345,17 @@ public class SessionPanel extends JPanel {
 		updateMatchAndReplaceButtonText();
 	}
 	
+	public void setJsonParameterReplaceList(ArrayList<JsonParameterReplace> jsonParameterReplaceList) {
+		this.jsonParameterReplaceList = jsonParameterReplaceList;
+		updateJsonParameterReplaceButtonText();
+	}
+	
 	public ArrayList<MatchAndReplace> getMatchAndReplaceList() {
 		return matchAndReplaceList;
+	}
+	
+	public ArrayList<JsonParameterReplace> getJsonParameterReplaceList() {
+		return jsonParameterReplaceList;
 	}
 	
 	public URL getScopeUrl() {

@@ -242,8 +242,9 @@ public class CenterPanel extends JPanel {
     public ArrayList<OriginalRequestResponse> getSelectedReqRespResponses() {
         ArrayList<OriginalRequestResponse> selectedReqRespResponses = new ArrayList<>();
         for (int row : table.getSelectedRows()) {
-            selectedReqRespResponses.add(tableModel.getOriginalRequestResponseList().get(row));
+            selectedReqRespResponses.add(tableModel.getOriginalRequestResponse(row));
         }
+
         return selectedReqRespResponses;
     }
 
