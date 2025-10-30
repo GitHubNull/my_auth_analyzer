@@ -38,7 +38,7 @@ public class PostmanItemConverter {
         request.add("header", headers);
 
         // Set URL
-        String urlString = buildUrlString(exportItem.getHost(), exportItem.getPort(), exportItem.getPath());
+        String urlString = exportItem.getFullUrl();
         JsonObject url = buildUrlObject(urlString);
         request.add("url", url);
 
@@ -63,8 +63,8 @@ public class PostmanItemConverter {
 
         JsonObject request = new JsonObject();
 
-        // Extract method from first line of request headers
-        String method = extractMethodFromHeaders(sessionData.getRequestHeaders());
+        // Use the dedicated method field
+        String method = sessionData.getMethod();
         request.addProperty("method", method != null ? method : "GET");
 
         // Set headers
@@ -120,10 +120,18 @@ public class PostmanItemConverter {
         String[] lines = headersString.split("\n");
         for (String line : lines) {
             line = line.trim();
-            if (line.isEmpty() || !line.contains(":") || line.startsWith("GET ") || line.startsWith("POST ") ||
-                line.startsWith("PUT ") || line.startsWith("DELETE ") || line.startsWith("PATCH ") ||
-                line.startsWith("HEAD ") || line.startsWith("OPTIONS ")) {
-                continue; // Skip request line and empty lines
+            if (line.isEmpty()) {
+                continue; // Skip empty lines
+            }
+
+            // Skip HTTP request line (e.g., "GET /path HTTP/1.1")
+            if (line.matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|TRACE|CONNECT)\\s+.*\\s+HTTP/[0-9.]+$")) {
+                continue;
+            }
+
+            // Skip lines that don't contain a colon (not valid headers)
+            if (!line.contains(":")) {
+                continue;
             }
 
             int colonIndex = line.indexOf(":");
@@ -144,7 +152,13 @@ public class PostmanItemConverter {
      */
     private static String buildUrlString(String host, int port, String path) {
         StringBuilder url = new StringBuilder();
-        url.append("http://"); // Default to http, could be enhanced to detect https
+
+        // Detect protocol from path if it contains a full URL
+        String protocol = "http";
+        if (path != null && path.startsWith("https://")) {
+            protocol = "https";
+        }
+        url.append(protocol).append("://");
 
         if (host != null && !host.trim().isEmpty()) {
             url.append(host);
@@ -157,10 +171,31 @@ public class PostmanItemConverter {
         }
 
         if (path != null && !path.trim().isEmpty()) {
-            if (!path.startsWith("/")) {
-                url.append("/");
+            // If path is a full URL, extract just the path part
+            if (path.startsWith("http://") || path.startsWith("https://")) {
+                try {
+                    URL urlObj = new URL(path);
+                    String pathOnly = urlObj.getPath();
+                    if (pathOnly == null || pathOnly.isEmpty()) {
+                        pathOnly = "/";
+                    }
+                    if (urlObj.getQuery() != null) {
+                        pathOnly += "?" + urlObj.getQuery();
+                    }
+                    url.append(pathOnly);
+                } catch (Exception e) {
+                    // If parsing fails, use path as is
+                    if (!path.startsWith("/")) {
+                        url.append("/");
+                    }
+                    url.append(path);
+                }
+            } else {
+                if (!path.startsWith("/")) {
+                    url.append("/");
+                }
+                url.append(path);
             }
-            url.append(path);
         } else {
             url.append("/");
         }
@@ -228,7 +263,13 @@ public class PostmanItemConverter {
                     String[] keyValue = param.split("=", 2);
                     JsonObject queryParam = new JsonObject();
                     queryParam.addProperty("key", keyValue[0]);
-                    queryParam.addProperty("value", keyValue.length > 1 ? keyValue[1] : "");
+                    // URL decode the value for better readability in Postman
+                    String value = keyValue.length > 1 ? keyValue[1] : "";
+                    try {
+                        queryParam.addProperty("value", java.net.URLDecoder.decode(value, "UTF-8"));
+                    } catch (Exception e) {
+                        queryParam.addProperty("value", value);
+                    }
                     queryArray.add(queryParam);
                 }
                 url.add("query", queryArray);
@@ -254,6 +295,7 @@ public class PostmanItemConverter {
         String contentType = extractContentType(headers);
 
         if (contentType != null) {
+            contentType = contentType.toLowerCase();
             if (contentType.contains(PostmanConstants.CONTENT_TYPE_JSON) ||
                 contentType.contains(PostmanConstants.CONTENT_TYPE_XML)) {
                 // Raw mode for JSON and XML
@@ -273,6 +315,11 @@ public class PostmanItemConverter {
                     urlencoded.add(param);
                 }
                 bodyObj.add("urlencoded", urlencoded);
+            } else if (contentType.contains("multipart/form-data")) {
+                // Multipart form data - use raw mode for now
+                bodyObj.addProperty("mode", PostmanConstants.BODY_MODE_RAW);
+                bodyObj.addProperty("options", "{\"raw\": {}}");
+                bodyObj.addProperty("raw", body);
             } else {
                 // Default to raw mode
                 bodyObj.addProperty("mode", PostmanConstants.BODY_MODE_RAW);
@@ -299,8 +346,8 @@ public class PostmanItemConverter {
 
         String[] lines = headers.split("\n");
         for (String line : lines) {
-            line = line.trim().toLowerCase();
-            if (line.startsWith("content-type:")) {
+            line = line.trim();
+            if (line.toLowerCase().startsWith("content-type:")) {
                 return line.substring("content-type:".length()).trim();
             }
         }

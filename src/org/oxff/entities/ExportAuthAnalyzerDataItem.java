@@ -256,4 +256,99 @@ public class ExportAuthAnalyzerDataItem {
     public void setResponseBodyIsBase64(Boolean responseBodyIsBase64) {
         this.responseBodyIsBase64 = responseBodyIsBase64;
     }
+
+    /**
+     * Get the full URL by combining host, port, and path
+     */
+    public String getFullUrl() {
+        StringBuilder url = new StringBuilder();
+        url.append("http://"); // Default to http, could be enhanced to detect https
+
+        if (host != null && !host.trim().isEmpty()) {
+            url.append(host);
+        } else {
+            url.append("localhost");
+        }
+
+        if (port != 80 && port != 443 && port > 0) {
+            url.append(":").append(port);
+        }
+
+        if (path != null && !path.trim().isEmpty()) {
+            if (!path.startsWith("/")) {
+                url.append("/");
+            }
+            url.append(path);
+        } else {
+            url.append("/");
+        }
+
+        return url.toString();
+    }
+
+    /**
+     * Extract protocol from the path (if it contains a full URL)
+     */
+    public String getProtocol() {
+        if (path != null && path.startsWith("https://")) {
+            return "https";
+        }
+        return "http"; // Default to http
+    }
+
+    /**
+     * Extract host from path if it's a full URL, otherwise use the host field
+     */
+    public String getEffectiveHost() {
+        if (path != null && (path.startsWith("http://") || path.startsWith("https://"))) {
+            try {
+                java.net.URL url = new java.net.URL(path);
+                return url.getHost();
+            } catch (Exception e) {
+                // If parsing fails, use the host field
+            }
+        }
+        return host;
+    }
+
+    /**
+     * Extract path without host if path contains full URL
+     */
+    public String getEffectivePath() {
+        if (path != null && (path.startsWith("http://") || path.startsWith("https://"))) {
+            try {
+                java.net.URL url = new java.net.URL(path);
+                String pathOnly = url.getPath();
+                if (pathOnly == null || pathOnly.isEmpty()) {
+                    return "/";
+                }
+                if (url.getQuery() != null) {
+                    return pathOnly + "?" + url.getQuery();
+                }
+                return pathOnly;
+            } catch (Exception e) {
+                // If parsing fails, use the path as is
+            }
+        }
+        return path;
+    }
+
+    /**
+     * Get effective port number
+     */
+    public int getEffectivePort() {
+        if (path != null && (path.startsWith("http://") || path.startsWith("https://"))) {
+            try {
+                java.net.URL url = new java.net.URL(path);
+                int urlPort = url.getPort();
+                if (urlPort != -1) {
+                    return urlPort;
+                }
+                return "https".equals(url.getProtocol()) ? 443 : 80;
+            } catch (Exception e) {
+                // If parsing fails, use the port field
+            }
+        }
+        return port;
+    }
 }

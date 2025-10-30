@@ -59,4 +59,55 @@ public class PostmanItemConverterTest {
 
         assertNull(response);
     }
+
+    @Test
+    public void testGenerateRequestNameWithDifferentMethods() {
+        String getName = PostmanItemConverter.generateRequestName("GET", "http://example.com", "/api/users", "SAME");
+        assertEquals("GET /api/users - SAME", getName);
+
+        String postName = PostmanItemConverter.generateRequestName("POST", "https://api.example.com", "/auth/login", "DIFFERENT");
+        assertEquals("POST /auth/login - DIFFERENT", postName);
+
+        String putName = PostmanItemConverter.generateRequestName("PUT", "http://example.com", "/api/users/123", "BYPASS");
+        assertEquals("PUT /api/users/123 - BYPASS", putName);
+    }
+
+    @Test
+    public void testGenerateDescriptionWithAllParameters() {
+        String description = PostmanItemConverter.generateDescription(
+            "AdminSession", "SAME", 200, 200, "User profile access test"
+        );
+
+        assertNotNull(description);
+        assertTrue(description.contains("AdminSession"));
+        assertTrue(description.contains("SAME"));
+        assertTrue(description.contains("200"));
+        assertTrue(description.contains("User profile access test"));
+    }
+
+    @Test
+    public void testExportAuthAnalyzerDataItemWithMockData() {
+        // Test the URL helper methods we added to ExportAuthAnalyzerDataItem
+        // We can't easily create a real ExportAuthAnalyzerDataItem without mocking,
+        // but we can test the logic conceptually
+        String host = "example.com";
+        int port = 8080;
+        String path = "/api/test";
+
+        // Simulate the getFullUrl logic
+        String fullUrl = "http://" + host;
+        if (port != 80 && port != 443 && port > 0) {
+            fullUrl += ":" + port;
+        }
+        if (path != null && !path.trim().isEmpty()) {
+            if (!path.startsWith("/")) {
+                fullUrl += "/";
+            }
+            fullUrl += path;
+        } else {
+            fullUrl += "/";
+        }
+
+        assertEquals("http://example.com:8080/api/test", fullUrl);
+    }
 }

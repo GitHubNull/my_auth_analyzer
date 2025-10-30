@@ -114,6 +114,7 @@ public class BurpSuiteHTTPDataHelper {
         if (requestInfo == null){
             return null;
         }
+        String method = requestInfo.getMethod();
         byte[] requestBodyBytes = getRequestBodyBytes(httpRequestResponse);
         int requestContentLength = requestBodyBytes.length;
         List<String> requestHeaderList = requestInfo.getHeaders();
@@ -144,7 +145,7 @@ public class BurpSuiteHTTPDataHelper {
             }
         }
 
-        SessionHTTPData sessionHTTPData = new SessionHTTPData(httpRequestResponse, sessionName, requestHeaderList,  requestBodyBytes, requestContentLength,
+        SessionHTTPData sessionHTTPData = new SessionHTTPData(httpRequestResponse, sessionName, method, requestHeaderList,  requestBodyBytes, requestContentLength,
                 responseHeaderList, responseBodyBytes, responseContentLength, responseStatusCode, status);
 
         return sessionHTTPData;

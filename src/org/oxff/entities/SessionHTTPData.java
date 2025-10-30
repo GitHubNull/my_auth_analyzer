@@ -12,6 +12,7 @@ import java.util.Locale;
 @SuppressWarnings({"unused", "SameParameterValue"})
 public class SessionHTTPData{
     private String sessionName;
+    private String method;
 
     private String requestHeaders;
     private String requestBody;
@@ -28,10 +29,11 @@ public class SessionHTTPData{
     private int responseStatusCode;
     private BypassConstants status;
 
-    public SessionHTTPData(IHttpRequestResponse httpRequestResponse, String sessionName, List<String> requestHeaderList, byte[] requestBodyBytes, int requestContentLength,
+    public SessionHTTPData(IHttpRequestResponse httpRequestResponse, String sessionName, String method, List<String> requestHeaderList, byte[] requestBodyBytes, int requestContentLength,
                            List<String> responseHeaderList, byte[] responseBodyBytes, int responseContentLength,
                            int responseStatusCode, BypassConstants status) {
         this.sessionName = sessionName;
+        this.method = method;
         this.status = status;
 
         // write data from headerList to headers
@@ -87,6 +89,14 @@ public class SessionHTTPData{
             }
         }
         return null;
+    }
+
+    public String getMethod() {
+        return method;
+    }
+
+    public void setMethod(String method) {
+        this.method = method;
     }
 
     public BypassConstants getStatus() {

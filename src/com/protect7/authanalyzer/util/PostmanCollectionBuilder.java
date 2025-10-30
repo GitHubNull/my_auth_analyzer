@@ -179,7 +179,7 @@ public class PostmanCollectionBuilder {
         // Request name
         String bypassStatus = getBypassStatusString(sessionData.getStatus());
         String requestName = PostmanItemConverter.generateRequestName(
-                exportItem.getMethod(),
+                sessionData.getMethod() != null ? sessionData.getMethod() : exportItem.getMethod(),
                 exportItem.getHost(),
                 exportItem.getPath(),
                 bypassStatus
