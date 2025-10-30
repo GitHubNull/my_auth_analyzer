@@ -12,6 +12,8 @@ import org.oxff.entities.SessionHTTPData;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.protect7.authanalyzer.util.PostmanConstants;
+import com.protect7.authanalyzer.util.Setting;
+import com.protect7.authanalyzer.util.PathTruncationUtil;
 
 /**
  * Converter for transforming HTTP data into Postman collection items
@@ -371,6 +373,20 @@ public class PostmanItemConverter {
             String fullUrl = buildFullUrl(host, path);
             pathOnly = extractPathFromUrl(fullUrl);
         }
+
+        // Apply path truncation if needed
+        int truncationLength = 64; // Default value
+        try {
+            truncationLength = Setting.getValueAsInteger(Setting.Item.POSTMAN_PATH_TRUNCATE_LENGTH);
+            if (truncationLength == -1) {
+                // Fallback to default if setting is not found or invalid
+                truncationLength = 64;
+            }
+        } catch (Exception e) {
+            // In test environment or if callbacks are not available, use default
+            truncationLength = 64;
+        }
+        pathOnly = PathTruncationUtil.truncatePath(pathOnly, truncationLength);
 
         return String.format(PostmanConstants.REQUEST_NAME_PATTERN,
                            method != null ? method : "UNKNOWN",

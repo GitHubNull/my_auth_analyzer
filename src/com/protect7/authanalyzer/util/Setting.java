@@ -77,8 +77,10 @@ public class Setting {
 				"Respect Response Code to flag with Status SAME", null),
 		STATUS_SIMILAR_RESPONSE_CODE("true", Type.BOOLEAN, 
 				"(Condition 1) Respect Response Code to flag with Status SIMILAR", null),
-		STATUS_SIMILAR_RESPONSE_LENGTH("5", Type.INTEGER, 
-				"(Condition 2) Deviation of Content-Length in percent to flag with Status SIMILAR", new Range(1,100));
+		STATUS_SIMILAR_RESPONSE_LENGTH("5", Type.INTEGER,
+				"(Condition 2) Deviation of Content-Length in percent to flag with Status SIMILAR", new Range(1,100)),
+		POSTMAN_PATH_TRUNCATE_LENGTH("64", Type.INTEGER,
+				"Postman Export Path Truncation Length", new Range(8,128));
 		
 		private final String defaultValue;
 		private final Type type;

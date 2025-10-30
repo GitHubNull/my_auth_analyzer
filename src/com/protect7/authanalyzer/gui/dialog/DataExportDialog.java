@@ -5,15 +5,21 @@ import com.protect7.authanalyzer.entities.OriginalRequestResponse;
 import com.protect7.authanalyzer.gui.main.CenterPanel;
 import com.protect7.authanalyzer.util.CurrentConfig;
 import com.protect7.authanalyzer.util.DataExporter;
+import com.protect7.authanalyzer.util.Setting;
+import com.protect7.authanalyzer.util.PathTruncationUtil;
 import org.oxff.util.JarResourceExtractor;
 
 import javax.swing.*;
+import java.awt.FlowLayout;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 
 public class DataExportDialog {
+
+    // Member variables for Postman options
+    private JSpinner truncationSpinner;
 
     public DataExportDialog(CenterPanel centerPanel) {
         JPanel inputPanel = new JPanel();
@@ -48,6 +54,20 @@ public class DataExportDialog {
 
         JCheckBox includeOriginalRequests = new JCheckBox("Include original requests in collection", true);
         postmanOptionsPanel.add(includeOriginalRequests);
+
+        // Path truncation configuration
+        JPanel truncationPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        truncationPanel.add(new JLabel("Path Truncation Length:"));
+
+        // Get current setting value
+        int currentTruncationLength = Setting.getValueAsInteger(Setting.Item.POSTMAN_PATH_TRUNCATE_LENGTH);
+
+        SpinnerNumberModel spinnerModel = new SpinnerNumberModel(currentTruncationLength, 8, 128, 1);
+        JSpinner truncationSpinner = new JSpinner(spinnerModel);
+        truncationSpinner.setToolTipText("Range: 8-128 characters (Short paths < 8 chars will not be modified)");
+        truncationPanel.add(truncationSpinner);
+
+        postmanOptionsPanel.add(truncationPanel);
 
         inputPanel.add(postmanOptionsPanel);
         postmanOptionsPanel.setEnabled(false);
@@ -164,6 +184,10 @@ public class DataExportDialog {
                         BurpExtender.callbacks.issueAlert("Failed to extract resources to " + file.getAbsolutePath());
                     }
                 } else if (postmanReport.isSelected()) {
+                    // Save the truncation length setting
+                    int truncationLength = (Integer) truncationSpinner.getValue();
+                    Setting.setValue(Setting.Item.POSTMAN_PATH_TRUNCATE_LENGTH, String.valueOf(truncationLength));
+
                     success = DataExporter.getDataExporter().createPostmanCollection(file, filteredRequestResponseList,
                             CurrentConfig.getCurrentConfig().getSessions(), includeOriginalRequests.isSelected());
 
