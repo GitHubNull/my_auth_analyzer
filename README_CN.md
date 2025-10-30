@@ -1,296 +1,350 @@
-# Auth Analyzer
-### 目录
-- [这是什么？](#这是什么)
-- [为什么使用Auth Analyzer？](#为什么使用auth-analyzer)
-- [界面概览](#界面概览)
-- [参数提取](#参数提取)
-  * [自动提取](#自动提取)
-  * [从到字符串](#从到字符串)
-  * [静态值](#静态值)
-  * [输入提示](#输入提示)
-- [参数替换](#参数替换)
-  * [替换位置](#替换位置)
-  * [高级参数替换](#高级参数替换)
-- [参数移除](#参数移除)
-- [使用示例](#使用示例)
-  * [自动提取会话Cookie](#自动提取会话cookie)
-  * [会话头和CSRF令牌参数](#会话头和csrf令牌参数)
-  * [从JavaScript变量自动提取](#从javascript变量自动提取)
-  * [自动提取并插入Bearer令牌](#自动提取并插入bearer令牌)
-  * [同时测试多个角色](#同时测试多个角色)
-  * [刷新自动提取的参数值](#刷新自动提取的参数值)
-  * [测试幂等操作](#测试幂等操作)
-  * [测试匿名会话](#测试匿名会话)
-  * [测试CORS配置](#测试cors配置)
-  * [测试CSRF检查机制](#测试csrf检查机制)
-  * [高级参数替换使用](#高级参数替换使用)
-  * [验证绕过状态](#验证绕过状态)
-- [处理过滤器](#处理过滤器)
-- [绕过检测](#绕过检测)
-- [功能特性](#功能特性)
+# Auth Analyzer - 授权测试与分析工具
 
+[![Java](https://img.shields.io/badge/Java-1.8+-orange.svg)](https://www.oracle.com/java/)
+[![Maven](https://img.shields.io/badge/Maven-3.6+-red.svg)](https://maven.apache.org/)
+[![Burp Suite](https://img.shields.io/badge/Burp%20Suite-Professional%20%7C%20Community-blue.svg)](https://portswigger.net/burp)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 这是什么？
-Burp扩展帮助您发现授权漏洞。只需使用高权限用户浏览Web应用程序，让Auth Analyzer为任何定义的非特权用户重复您的请求。通过定义参数的可能性，Auth Analyzer能够自动提取和替换参数值。例如，可以从响应中自动提取CSRF令牌甚至整个会话特征，并在进一步的请求中替换。每个响应都将被分析并根据其绕过状态进行标记。
+**English Version**: [README_EN.md](README_EN.md)
 
-## 为什么使用Auth Analyzer？
-有其他现有的Burp扩展做类似的事情。但是，参数功能和自动值提取的强大功能是选择Auth Analyzer的主要原因。通过这个功能，您不必知道必须交换的数据内容。您可以轻松定义参数和cookies，Auth Analyzer将动态捕获所需的值。Auth Analyzer不执行任何预检请求。它基本上只是做与您的Web应用相同的事情。与您定义的用户角色/会话。
+## 项目简介
 
-## 界面概览
-(1) 为您要测试的每个用户创建或克隆会话。
+**Auth Analyzer** 是一款专业的 Burp Suite 扩展，专为授权测试和安全分析而设计。该工具通过自动重复请求并使用不同的用户会话来检测授权绕过漏洞，帮助安全研究人员和渗透测试人员发现应用程序中的授权缺陷。
 
-(2) 保存和加载会话设置
+### 核心特性
 
-(3) 指定会话特征（要替换的头和/或参数）
+🔒 **多会话管理** - 同时测试多个用户角色和权限级别
+🎯 **智能参数提取** - 自动从响应中提取令牌、Cookie 和参数
+🔧 **高级参数替换** - 支持 JSON Path、Form 数据和 XML 参数操作
+📊 **响应分析对比** - 自动比较原始和修改后的请求响应
+🚨 **绕过检测** - 内置分析引擎识别潜在的授权绕过
+📤 **Postman 导出** - 导出请求和响应到 Postman Collection v2.1 格式
+🎛️ **灵活过滤系统** - 多种过滤器精确控制测试范围
+💾 **配置持久化** - 会话配置自动保存和加载
 
-(4) 如果需要，设置过滤器
+## 功能概览
+
+### 🏗️ 技术架构
 
-(5) 启动/停止和暂停Auth Analyzer
+Auth Analyzer 采用模块化架构设计，主要包含以下核心组件：
 
-(6) 指定表格过滤器
+- **BurpExtender**: 扩展入口点，实现 IBurpExtender 接口
+- **MainPanel**: 主界面容器，采用分割面板布局
+- **Session**: 会话实体，管理用户会话和参数配置
+- **HttpListener**: HTTP 流量拦截和处理
+- **RequestController**: 请求修改和重复执行逻辑
 
-(7) 使用另一个用户浏览Web应用并跟踪重复请求的结果
+### 🔍 参数提取系统
 
-(8) 将表格数据导出为XML或HTML
+支持多种参数提取方式：
 
-(9) 手动分析原始和重复的请求/响应
+#### 自动提取
+- 从 `Set-Cookie` 头部提取会话 Cookie
+- 从 HTML 输入字段提取 CSRF 令牌
+- 从 JSON 响应提取动态参数
 
+#### From-To 字符串提取
+- 基于起始和结束字符串的通用提取
+- 支持从 JavaScript 变量中提取值
+- 灵活的定位规则配置
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/complete_gui.png)
+#### 其他提取方式
+- 静态值预定义
+- 用户交互式输入提示
+
+### 🛠️ 高级参数替换
 
-## 半自动化授权测试
-如果您在站点地图中有要测试的资源，执行授权测试非常简单快速。首先定义您要测试的会话。然后只需展开站点地图，选择资源并通过上下文菜单重复请求。此外，您可以定义一些选项，确定哪些请求应该重复，哪些不应该。通过这种方式，您可以在几秒钟内对复杂网站执行授权测试。
+#### JSON 参数替换
+支持标准 JSON Path 语法，提供精确的 JSON 操作能力：
 
-## 参数提取
-Auth Analyzer可以定义在为给定会话重复请求之前替换的参数。给定参数的值可以根据不同的要求设置。
+```json
+// 示例 JSON Path 表达式
+$.user.name              // 获取用户名
+$.store.book[0].title    // 获取第一本书的标题
+$..price                 // 递归搜索所有价格字段
+$.items[*].id            // 获取所有项目的ID
+```
 
-### 自动提取
-如果参数值出现在具有以下约束之一的响应中，将被提取：
+**特性**:
+- 嵌套对象处理
+- 数组元素操作
+- 条件过滤支持
+- 参数完全移除功能
 
-* 带有`Set-Cookie头`的响应，其Cookie名称设置为定义的`提取字段名`
+#### Form 参数替换
+支持两种主流表单格式：
 
-* `HTML文档响应`包含一个name属性设置为定义的`提取字段名`的输入字段
+- **URL-Encoded Forms**: `application/x-www-form-urlencoded` 格式
+- **Multipart Forms**: `multipart/form-data` 格式（包含文件上传）
 
-* `JSON响应`包含一个设置为`提取字段名`的键
+#### XML 参数替换
+- XPath 表达式支持
+- XML 文档结构操作
 
-默认情况下，Auth Analyzer尝试从所有位置自动提取参数值。但是，单击参数设置图标可以让您根据需要限制自动提取位置。
+### 📈 绕过检测机制
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_auto_extract_location.png)
+自动响应分析系统：
 
-### 从到字符串
-如果响应在一行中包含指定的`From String`和`To String`，将提取参数。From-To字符串可以手动设置或直接通过相应的上下文菜单设置。只需在任何响应中标记您要提取的单词，并为您喜欢的参数设置为`From-To Extract`。
+- **SAME**: 响应体和状态码完全相同
+- **SIMILAR**: 状态码相同，响应体长度相差 ±5%
+- **DIFFERENT**: 其他所有情况
+- **BYPASS**: 检测到授权绕过
 
-默认情况下，Auth Analyzer尝试从大多数文本响应的头和正文中提取值。但是，单击参数设置图标可以让您根据需要限制From-To提取位置。
+### 🎛️ 智能过滤系统
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_fromto_extract_location.png)
+多种过滤器精确控制测试范围：
 
-### 静态值
-可以定义静态参数值。例如，这可以用于静态CSRF令牌或登录凭据。
+- **范围过滤** (In Scope)
+- **代理流量过滤** (Only Proxy Traffic)
+- **文件类型过滤** (Exclude Filetypes)
+- **HTTP 方法过滤** (Exclude HTTP Methods)
+- **状态码过滤** (Exclude Status Codes)
+- **路径过滤** (Exclude Paths)
+- **查询参数过滤** (Exclude Queries/Params)
+
+### 📤 Postman 导出功能
+
+#### 导出特性
+- **Postman Collection v2.1 格式**：完全符合 Postman 规范
+- **会话组织**：按会话名称自动分组请求
+- **元数据保留**：包含会话信息、绕过状态和响应代码
+- **灵活导出选项**：可选择是否包含原始请求
+
+#### 导出格式示例
+```
+Auth Analyzer Export/
+├── Session: Admin/
+│   ├── GET /api/users - BYPASS
+│   ├── POST /api/users - SAME
+│   └── ...
+├── Session: User/
+│   ├── GET /api/profile - DIFFERENT
+│   └── ...
+└── Session: Anonymous/
+    ├── GET /api/public - SAME
+    └── ...
+```
 
-### 输入提示
-如果定义的参数存在于请求中，您将被提示输入。例如，这可以用于设置2FA代码。
+## 安装指南
 
-## 参数替换
-如果设置了值（由用户提取或定义），当相应参数存在于请求中时将被替换。参数替换的条件是：
+### 环境要求
+
+- **Java**: 1.8 或更高版本
+- **Burp Suite**: Professional 或 Community 版本
+- **Maven**: 3.6+ (仅编译时需要)
 
-### 替换位置
-如果参数存在于以下位置之一，将被替换：
+### 编译安装
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_replace_locations.png)
+1. **克隆项目**
+   ```bash
+   git clone https://github.com/GitHubNull/my_auth_analyzer.git
+   cd my_auth_analyzer
+   ```
 
-* `在路径中`（例如`/api/user/99/profile` --> 如果存在名为`user`的参数，值`99`将被替换）
+2. **编译打包**
+   ```bash
+   mvn clean package
+   ```
+
+3. **安装扩展**
+   - 启动 Burp Suite
+   - 进入 `Extender` → `Extensions`
+   - 点击 `Add` → `Extension`
+   - 选择 `target/myAuthAnalyzer-2.0.0-jar-with-dependencies.jar`
+
+## 使用指南
+
+### 基本使用流程
+
+1. **创建会话**
+   - 为每个测试用户角色创建独立会话
+   - 配置会话头部和参数替换规则
+
+2. **配置参数**
+   - 设置要提取和替换的参数
+   - 选择提取方式（自动/静态/提示输入）
+
+3. **设置过滤器**
+   - 配置请求过滤规则
+   - 确定测试范围
+
+4. **开始测试**
+   - 启动 Auth Analyzer
+   - 使用高权限用户浏览应用
+   - 观察测试结果
+
+### 高级功能使用
+
+#### JSON Path 参数替换示例
+
+**场景**: 替换嵌套 JSON 中的用户 ID
+
+```
+配置:
+- JSON Path: $.user.id
+- 替换值: 12345
+- 移除: 否
+```
+
+**场景**: 移除认证令牌
+
+```
+配置:
+- JSON Path: $.auth.token
+- 替换值: (空)
+- 移除: 是
+```
+
+#### 多角色同时测试
+
+创建多个会话来测试不同权限级别：
+
+- **管理员会话**: 完整权限访问
+- **普通用户会话**: 有限权限访问
+- **匿名会话**: 无权限访问
+
+#### CORS 配置测试
+
+1. 在会话配置中添加 `Origin` 头部
+2. 选择 `Test CORS` 选项
+3. Auth Analyzer 自动将 HTTP 方法改为 OPTIONS
+4. 分析 CORS 响应头
+
+## 技术细节
+
+### 依赖库
+
+- **Burp Extender API (2.3)**: Burp Suite 扩展 API
+- **Gson (2.10.1)**: JSON 序列化/反序列化
+- **JSON Path (2.9.0)**: JSON 路径查询和操作
+- **JSoup (1.15.4)**: HTML 解析和处理
+- **FastJSON (2.0.32)**: 额外 JSON 处理支持
+- **Apache Tika (2.7.0)**: 内容类型检测
+- **Commons Codec (1.17.1)**: 编码操作
+
+### 构建配置
+
+- **Java 版本**: 1.8 (源码和目标)
+- **打包方式**: JAR with dependencies
+- **编码**: UTF-8
+- **构建命令**: `mvn package`
+
+### 性能特性
+
+- **异步处理**: 多线程并发请求处理
+- **内存优化**: 高效的数据结构设计
+- **响应缓存**: 智能缓存机制减少重复计算
+
+## 项目结构
+
+```
+src/
+├── burp/
+│   └── BurpExtender.java                    # 扩展入口点
+└── com/protect7/authanalyzer/
+    ├── entities/                            # 核心数据实体
+    │   ├── Session.java                     # 会话实体
+    │   ├── Token.java                       # 令牌实体
+    │   ├── JsonParameterReplace.java        # JSON 参数替换
+    │   ├── FormParameterReplace.java        # Form 参数替换
+    │   └── XmlParameterReplace.java         # XML 参数替换
+    ├── gui/                                 # 图形用户界面
+    │   ├── main/                            # 主要 UI 组件
+    │   ├── dialog/                          # 对话框窗口
+    │   └── entity/                          # UI 实体组件
+    ├── controller/                          # 业务逻辑控制器
+    │   ├── HttpListener.java                # HTTP 监听器
+    │   ├── RequestController.java           # 请求控制器
+    │   └── ContextMenuController.java       # 上下文菜单控制器
+    ├── filter/                              # 请求过滤器
+    │   ├── MethodFilter.java                # HTTP 方法过滤
+    │   ├── StatusCodeFilter.java            # 状态码过滤
+    │   └── PathFilter.java                  # 路径过滤
+    └── util/                                # 工具类
+        ├── RequestModifHelper.java          # 请求修改助手
+        ├── DataExporter.java                # 数据导出器
+        ├── PostmanCollectionBuilder.java    # Postman 集合构建器
+        └── ExtractionHelper.java            # 提取助手
+```
 
-* `URL参数`（例如`email=hans.wurst[a]gmail.com`）
+## 贡献指南
 
-* `Cookie参数`（例如`PHPSESSID=mb8rkrcdg8765dt91vpum4u21v`）
+我们欢迎社区贡献！请遵循以下步骤：
 
-* `Body参数`（`URL编码`或`多部分表单数据`）
+### 开发环境设置
 
-* `JSON参数`（例如`{"email":"hans.wurst[a]gmail.com"}`）
+1. Fork 项目到你的 GitHub 账户
+2. 克隆你的 fork
+3. 创建功能分支: `git checkout -b feature/amazing-feature`
+4. 提交更改: `git commit -m 'Add amazing feature'`
+5. 推送分支: `git push origin feature/amazing-feature`
+6. 创建 Pull Request
 
-默认情况下，参数值将在每个位置被替换。但是，单击参数设置图标可以让您根据需要限制位置。
+### 代码规范
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_replace_location.png)
+- 遵循 Java 编码规范
+- 添加适当的注释和文档
+- 确保所有测试通过
+- 保持代码结构清晰
 
-### 高级参数替换
-除了标准参数替换方法外，Auth Analyzer为特定参数格式提供高级功能：
+### 问题报告
 
-#### JSON参数替换
-Auth Analyzer支持使用标准JSON Path表达式的高级JSON参数替换。此功能允许您精确定位特定JSON元素进行替换或删除：
+使用 GitHub Issues 报告问题时，请包含：
 
-* **JSON Path支持**：使用标准JSON Path语法（例如`$.user.name`、`$.store.book[0].title`、`$..price`）
-* **嵌套对象处理**：替换深度嵌套JSON结构中的参数
-* **数组支持**：定位特定数组元素或使用通配符进行多次替换
-* **条件替换**：基于特定条件应用替换
-* **参数移除**：完全删除特定JSON参数
+- 详细的错误描述
+- 重现步骤
+- 环境信息（Java 版本、Burp Suite 版本等）
+- 相关日志或截图
 
-#### 表单参数替换
-Auth Analyzer现在支持两种标准表单数据格式的专用表单参数替换：
+## 更新日志
 
-* **URL编码表单**：处理`application/x-www-form-urlencoded`格式参数
-* **多部分表单**：处理`multipart/form-data`格式参数（包括文件上传）
-* **参数特定操作**：按名称替换或删除特定表单参数
-* **大小写敏感匹配**：精确参数名称匹配以进行精确控制
-* **表单数据重构**：在参数修改后正确重建表单请求
+### v2.0.0
+- ✨ 新增 Postman Collection v2.1 导出功能
+- 🔧 优化 JSON Path 参数替换引擎
+- 🎛️ 增强过滤器系统
+- 🐛 修复参数提取的边界情况
+- 📚 完善文档和示例
 
-两个高级替换功能都可以通过专用对话框界面进行配置，可通过会话面板中的"JSON 参数替换"和"Form 参数替换"按钮访问。
+### v1.1.14
+- 🐛 修复会话配置保存问题
+- 🔧 优化响应分析算法
+- 📤 改进导出功能
+- 🎨 UI 界面优化
 
-## 参数移除
-定义的参数可以完全删除，例如用于测试CSRF检查机制。
+## 常见问题
 
-## 使用示例
+### Q: 如何提取 JavaScript 变量中的值？
+A: 使用 "From To String" 提取方式，设置起始和结束字符串来定位变量值。
 
-### 自动提取会话Cookie
-将用户名和密码定义为`静态值`。会话cookie名称必须定义为`自动提取`。验证您开始浏览应用程序时没有设置会话cookie。登录到Web应用。Auth Analyzer将使用静态参数重复登录请求，并通过`Set-Cookie`头自动获取会话。此Cookie将用于给定会话的进一步请求。定义的Cookie将被视为参数，因此不必定义Cookie头。
+### Q: JSON Path 支持哪些语法？
+A: 支持标准 JSON Path 语法，包括嵌套对象、数组索引、递归搜索等。
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/auto_extract_session_id_1.png)
+### Q: 如何测试 CSRF 保护机制？
+A: 配置参数移除功能，移除 CSRF 令牌参数，观察请求是否被拒绝。
 
-提示：您可以限制参数的提取和替换条件，以避免在提取/替换阶段出现故障。
+### Q: Postman 导出支持哪些格式？
+A: 目前支持 Postman Collection v2.1 格式，完全兼容 Postman 导入。
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/parameter_settings_session_cookie.png)
+## 免责声明
 
-### 会话头和CSRF令牌参数
-定义一个Cookie头和一个CSRF令牌（使用`自动值提取`）。如果CSRF令牌值存在于给定会话的`HTML输入标签`、`Set-Cookie头`或`JSON响应`中，将被提取。
+本工具仅用于合法的安全研究和授权测试。使用者应当：
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/session_header_with_csrf_token.png)
+- 仅在获得明确授权的系统上使用
+- 遵守相关法律法规和道德准则
+- 对使用本工具产生的任何后果承担责任
 
-### 从JavaScript变量自动提取
-由于`自动提取`方法仅适用于`HTML输入字段`、`JSON对象`或`Set-Cookie头`，我们必须使用名为`From To String`的通用提取方法。使用此提取方法，如果值位于唯一的起始和结束字符串之间，我们可以从响应中提取任何值。Auth Analyzer提供上下文菜单方法自动设置`From String`和`To String`。只需标记您要提取的字符串，然后通过上下文菜单设置为`From-To Extract`。
+详细信息请参阅 [DISCLAIMER.md](DISCLAIMER.md)。
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/auto_extract_csrftoken_from_js_var.png)
+## 开源协议
 
-### 自动提取并插入Bearer令牌
-由于Authorization头不被视为参数（如Cookie头那样），我们可以使用头插入点来实现我们想要的。只需标记并右键单击您要在指定头中替换的值。如果尚未提取参数值，将使用`defaultvalue`。
+本项目采用 MIT 开源协议，详情请参阅 [LICENSE](LICENSE)。
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/auto_extract_and_insert_bearer_token.png)
+## 联系方式
 
-### 同时测试多个角色
-只需创建您想要的多个会话来同时测试多个角色。
+- **项目主页**: https://github.com/GitHubNull/my_auth_analyzer
+- **问题反馈**: https://github.com/GitHubNull/my_auth_analyzer/issues
+- **作者**: org 0xff (增强功能开发者)
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/several_sessions_1.png)
+---
 
-### 刷新自动提取的参数值
-只需在会话状态面板上按`Renew`或通过上下文菜单重复受影响的请求（在表格条目中右键单击）。提示：登录请求可以被标记并随后过滤。
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/renew_session.png)
-
-### 测试幂等操作
-原始请求可以被丢弃以测试幂等操作（例如`DELETE`功能）。
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/idempotent_operations.png)
-
-### 测试匿名会话
-如果匿名用户需要有效特征（例如有效的cookie值），您必须照常定义头。否则，您可以定义要删除的头，如下所示：
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/test_anonymous.png)
-
-### 测试CORS配置
-您可以通过在`Header(s) to replace`添加Origin头并在会话面板上选择`Test CORS`来轻松测试大量端点的各自CORS设置。通过选择`Test CORS`，Auth Analyzer将在重复请求之前将HTTP方法更改为`OPTIONS`
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/test_cors.png)
-
-### 测试CSRF检查机制
-通过选择`Remove Checkbox`可以删除指定参数。例如，这可以用于测试CSRF检查机制。
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/remove_csrf.png)
-
-### 高级参数替换使用
-
-#### JSON参数替换示例
-配置JSON参数替换以修改请求正文中的特定JSON字段：
-
-**替换嵌套JSON中的用户ID**：
-- JSON路径：`$.user.id`  
-- 替换值：`12345`
-- 移除：否
-
-**删除认证令牌**：
-- JSON路径：`$.auth.token`
-- 替换值：（空）
-- 移除：是
-
-**替换数组元素**：
-- JSON路径：`$.items[0].price`
-- 替换值：`99.99` 
-- 移除：否
-
-#### 表单参数替换示例
-配置表单参数替换以修改请求正文中的表单数据：
-
-**替换用户名参数**：
-- 参数名：`username`
-- 替换值：`admin`
-- 移除：否
-
-**删除CSRF令牌**：
-- 参数名：`csrf_token`
-- 替换值：（空）
-- 移除：是
-
-**替换用户角色**：
-- 参数名：`role`
-- 替换值：`administrator`
-- 移除：否
-
-这些高级功能与标准参数替换系统一起工作，可以同时使用来处理复杂的授权测试场景。
-
-### 验证绕过状态
-Auth Analyzer提供内置比较视图来验证两个响应之间的差异。只需标记您要分析的消息并更改消息视图`(1)`。您现在能够比较两个请求`(2) (3)`。内置的`Diff`功能将实时计算并显示两个请求之间的差异`(4)`
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/compare_view.png)
-
-扩展的Diff视图：
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/diff_view.png)
-
-## 处理过滤器
-Auth Analyzer应该处理两种类型的请求/响应：
-
-* 响应包含必须提取的值
-
-* 请求的资源不应该被定义的会话访问
-
-例如，我们不想处理静态JavaScript文件，因为它对每个人都是可访问的，并且（希望）不包含任何受保护的数据。为了实现这一点，我们可以设置以下类型的过滤器：
-*	仅在范围内（仅处理设置范围内的请求）
-*	仅代理流量（仅处理"代理历史"的请求）
-*	排除文件类型（可以排除指定的文件类型）
-*	排除HTTP方法（可以排除指定的HTTP方法）
-*	排除状态码（可以排除指定的状态码）
-*	排除路径（可以排除指定的路径）
-*	排除查询/参数（可以排除指定的查询/参数）
-
-## 自动响应分析
-*	如果`两个响应具有相同的响应正文`和`相同的响应代码`，响应将被声明为SAME
-*	如果`两个响应具有相同的响应代码`和`两个响应的响应正文长度相差+-5%`，响应将被声明为SIMILAR
-*	在所有其他情况下，响应将被声明为DIFFERENT
-
-## 功能特性
-*	为每个用户角色创建会话
-*	重命名和删除会话
-*	克隆会话
-*	设置任意数量的要替换/添加的头
-*	设置要删除的头
-*	设置任意数量的要替换的参数
-*	定义如何发现参数值（自动、静态、输入提示、从到字符串）
-*	删除指定参数
-*	**支持JSON Path的高级JSON参数替换**
-*	**URL编码和多部分表单数据的表单参数替换**
-*	**参数特定的替换和删除操作**
-*	详细的过滤规则
-*	每个会话的详细状态面板
-*	单独暂停每个会话
-*	自动更新自动提取的参数值
-*	通过上下文菜单重复请求
-*	表格数据过滤器
-*	表格数据导出功能
-*	启动/停止/暂停"Auth Analyzer"
-*	单独暂停每个会话
-*	将会话限制为定义的范围
-*	过滤具有相同头的请求
-* 丢弃原始请求功能
-*	所有处理的请求和响应的详细视图
-*	通过上下文菜单直接将头和/或参数发送到Auth Analyzer
-*	自动保存当前配置
-* 保存到文件和从文件加载当前配置
-* 重复请求中的搜索功能
-* 半自动化授权测试 
+**免责声明**: 本工具仅用于授权的安全测试和研究目的。使用者需要确保在合法和道德的范围内使用此工具。 

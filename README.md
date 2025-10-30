@@ -1,293 +1,350 @@
-# Auth Analyzer
-### Table of Contents
-- [What is it?](#what-is-it)
-- [Why should I use Auth Analyzer?](#why-should-i-use-auth-analyzer)
-- [GUI Overview](#gui-overview)
-- [Parameter Extraction](#parameter-extraction)
-  * [Auto Extract](#auto-extract)
-  * [From To String](#from-to-string)
-  * [Static Value](#static-value)
-  * [Prompt for Input](#prompt-for-input)
-- [Parameter Replacement](#parameter-replacement)
-  * [Replacement Location](#replacement-location)
-  * [Advanced Parameter Replacements](#advanced-parameter-replacements)
-- [Parameter removement](#parameter-removement)
-- [Sample Usage](#sample-usage)
-  * [Auto extract session Cookie](#auto-extract-session-cookie)
-  * [Session Header and CSRF Token Parameter](#session-header-and-csrf-token-parameter)
-  * [Auto extract from JavaScript variable](#auto-extract-from-javascript-variable)
-  * [Auto extract and insert a Bearer Token](#auto-extract-and-insert-a-bearer-token)
-  * [Test several roles at a time](#test-several-roles-at-a-time)
-  * [Refresh Auto Exracted Parameter Value](#refresh-auto-exracted-parameter-value)
-  * [Test idempotent Operations](#test-idempotent-operations)
-  * [Test anonymous sessions](#test-anonymous-sessions)
-  * [Test CORS configuration](#test-cors-configuration)
-  * [Test CSRF Check mechanism](#test-csrf-check-mechanism)
-  * [Advanced Parameter Replacement Usage](#advanced-parameter-replacement-usage)
-  * [Verify the Bypass Status](#verify-the-bypass-status)
-- [Processing Filter](#processing-filter)
-- [Bypass Detection](#bypass-detection)
-- [Features](#features)
+# Auth Analyzer - 授权测试与分析工具
 
+[![Java](https://img.shields.io/badge/Java-1.8+-orange.svg)](https://www.oracle.com/java/)
+[![Maven](https://img.shields.io/badge/Maven-3.6+-red.svg)](https://maven.apache.org/)
+[![Burp Suite](https://img.shields.io/badge/Burp%20Suite-Professional%20%7C%20Community-blue.svg)](https://portswigger.net/burp)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## What is it?
-The Burp extension helps you to find authorization bugs. Just navigate through the web application with a high privileged user and let the Auth Analyzer repeat your requests for any defined non-privileged user. With the possibility to define Parameters the Auth Analyzer is able to extract and replace parameter values automatically. With this for instance, CSRF tokens or even whole session characteristics can be auto extracted from responses and replaced in further requests. Each response will be analyzed and tagged on its bypass status. 
+**English Version**: [README_EN.md](README_EN.md)
 
-## Why should I use Auth Analyzer?
-There are other existing Burp Extensions doing basically similar stuff. However, the force of the parameter feature and automatic value extraction is the main reason for choosing Auth Analyzer. With this you don't have to know the content of the data which must be exchanged. You can easily define your parameters and cookies and Auth Analyzer will catch on the fly the values needed. The Auth Analyzer does not perform any preflight requests. It does basically just the same thing as your web app. With your defined user roles / sessions.
+## 项目简介
 
-## GUI Overview
-(1) Create or Clone a Session for every user you want to test.
+**Auth Analyzer** 是一款专业的 Burp Suite 扩展，专为授权测试和安全分析而设计。该工具通过自动重复请求并使用不同的用户会话来检测授权绕过漏洞，帮助安全研究人员和渗透测试人员发现应用程序中的授权缺陷。
 
-(2) Save and load session setup
+### 核心特性
 
-(3) Specify the session characteristics (Header(s) and / or Parameter(s) to replace)
+🔒 **多会话管理** - 同时测试多个用户角色和权限级别
+🎯 **智能参数提取** - 自动从响应中提取令牌、Cookie 和参数
+🔧 **高级参数替换** - 支持 JSON Path、Form 数据和 XML 参数操作
+📊 **响应分析对比** - 自动比较原始和修改后的请求响应
+🚨 **绕过检测** - 内置分析引擎识别潜在的授权绕过
+📤 **Postman 导出** - 导出请求和响应到 Postman Collection v2.1 格式
+🎛️ **灵活过滤系统** - 多种过滤器精确控制测试范围
+💾 **配置持久化** - 会话配置自动保存和加载
 
-(4) Set Filters if needed
+## 功能概览
+
+### 🏗️ 技术架构
 
-(5) Start / Stop and Pause Auth Analyzer
+Auth Analyzer 采用模块化架构设计，主要包含以下核心组件：
 
-(6) Specify table filter
+- **BurpExtender**: 扩展入口点，实现 IBurpExtender 接口
+- **MainPanel**: 主界面容器，采用分割面板布局
+- **Session**: 会话实体，管理用户会话和参数配置
+- **HttpListener**: HTTP 流量拦截和处理
+- **RequestController**: 请求修改和重复执行逻辑
 
-(7) Navigate through Web App with another user and track results of the repeated requests
+### 🔍 参数提取系统
 
-(8) Export table data to XML or HTML
+支持多种参数提取方式：
 
-(9) Manually analyze original and repeated requests / responses 
+#### 自动提取
+- 从 `Set-Cookie` 头部提取会话 Cookie
+- 从 HTML 输入字段提取 CSRF 令牌
+- 从 JSON 响应提取动态参数
 
+#### From-To 字符串提取
+- 基于起始和结束字符串的通用提取
+- 支持从 JavaScript 变量中提取值
+- 灵活的定位规则配置
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/complete_gui.png)
+#### 其他提取方式
+- 静态值预定义
+- 用户交互式输入提示
+
+### 🛠️ 高级参数替换
 
-## Semi Automated Authorization Testing
-If you have the resources you want to test in your sitemap, it is very easy and quick to perform your authorization tests. In the very first step define your sessions you want to test. Then just expand your sitemap, select the resources and repeat the requests through the context menu. Additionally you can define some options which requests should be repeated and which not. With this you can perform authorization tests of a complex website within seconds.
+#### JSON 参数替换
+支持标准 JSON Path 语法，提供精确的 JSON 操作能力：
 
-## Parameter Extraction
-The Auth Analyzer has the possibility to define parameters which are replaced before the request for the given session will be repeated. The value for the given parameter can be set according to different requirements.
-### Auto Extract
-The parameter value will be extracted if it occurs in a response with one of the following constraints:
+```json
+// 示例 JSON Path 表达式
+$.user.name              // 获取用户名
+$.store.book[0].title    // 获取第一本书的标题
+$..price                 // 递归搜索所有价格字段
+$.items[*].id            // 获取所有项目的ID
+```
 
-* A response with a `Set-Cookie Header` with a Cookie name set to the defined `Extract Field Name`
+**特性**:
+- 嵌套对象处理
+- 数组元素操作
+- 条件过滤支持
+- 参数完全移除功能
 
-* An `HTML Document Response` contains an input field with the name attribute set to the defined `Extract Field Name`
+#### Form 参数替换
+支持两种主流表单格式：
 
-* A `JSON Response` contains a key set to the `Extract Field Name`
+- **URL-Encoded Forms**: `application/x-www-form-urlencoded` 格式
+- **Multipart Forms**: `multipart/form-data` 格式（包含文件上传）
 
-Per default the Auth Analyzer tries to auto extract the parameter value from all locations. However, clicking on the parameter settings icon lets you restrict the auto extract location according to your needs.
+#### XML 参数替换
+- XPath 表达式支持
+- XML 文档结构操作
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_auto_extract_location.png)
+### 📈 绕过检测机制
 
-### From To String
-The parameter will be extracted if the response contains the specified `From String` and `To String` in a line. The From-To String can be set either manually or directly by the corresponding context menu. Just mark the word you want to extract in any response and set as `From-To Extract` for the parameter you like.
+自动响应分析系统：
 
-Per default the Auth Analyzer tries to extract the value from header and body at most textual responses. However, clicking on the parameter settings icon lets you restrict the From-To extract location according to your needs.
+- **SAME**: 响应体和状态码完全相同
+- **SIMILAR**: 状态码相同，响应体长度相差 ±5%
+- **DIFFERENT**: 其他所有情况
+- **BYPASS**: 检测到授权绕过
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_fromto_extract_location.png)
+### 🎛️ 智能过滤系统
 
-### Static Value
-A static parameter value can be defined. This can be used for instance for static CSRF tokens or login credentials.
+多种过滤器精确控制测试范围：
 
-### Prompt for Input
-You will be prompted for input if the defined parameter is present in a request. This can be used for instance to set 2FA codes.
+- **范围过滤** (In Scope)
+- **代理流量过滤** (Only Proxy Traffic)
+- **文件类型过滤** (Exclude Filetypes)
+- **HTTP 方法过滤** (Exclude HTTP Methods)
+- **状态码过滤** (Exclude Status Codes)
+- **路径过滤** (Exclude Paths)
+- **查询参数过滤** (Exclude Queries/Params)
+
+### 📤 Postman 导出功能
+
+#### 导出特性
+- **Postman Collection v2.1 格式**：完全符合 Postman 规范
+- **会话组织**：按会话名称自动分组请求
+- **元数据保留**：包含会话信息、绕过状态和响应代码
+- **灵活导出选项**：可选择是否包含原始请求
+
+#### 导出格式示例
+```
+Auth Analyzer Export/
+├── Session: Admin/
+│   ├── GET /api/users - BYPASS
+│   ├── POST /api/users - SAME
+│   └── ...
+├── Session: User/
+│   ├── GET /api/profile - DIFFERENT
+│   └── ...
+└── Session: Anonymous/
+    ├── GET /api/public - SAME
+    └── ...
+```
 
-## Parameter Replacement
-If a value is set (extracted or defined by the user) it will be replaced if the corresponding parameter is present in a request. The conditions for parameter replacements are:
-### Replacement Location
-The parameter will be replaced if it is present at one of the following locations:
+## 安装指南
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_replace_locations.png)
+### 环境要求
+
+- **Java**: 1.8 或更高版本
+- **Burp Suite**: Professional 或 Community 版本
+- **Maven**: 3.6+ (仅编译时需要)
 
-* `In Path` (e.g. `/api/user/99/profile` --> if a parameter named `user` is present, the value `99` will be replaced)
+### 编译安装
 
-* `URL Parameter` (e.g. `email=hans.wurst[a]gmail.com`)
+1. **克隆项目**
+   ```bash
+   git clone https://github.com/GitHubNull/my_auth_analyzer.git
+   cd my_auth_analyzer
+   ```
 
-* `Cookie Parameter` (e.g. `PHPSESSID=mb8rkrcdg8765dt91vpum4u21v`)
+2. **编译打包**
+   ```bash
+   mvn clean package
+   ```
+
+3. **安装扩展**
+   - 启动 Burp Suite
+   - 进入 `Extender` → `Extensions`
+   - 点击 `Add` → `Extension`
+   - 选择 `target/myAuthAnalyzer-2.0.0-jar-with-dependencies.jar`
+
+## 使用指南
+
+### 基本使用流程
+
+1. **创建会话**
+   - 为每个测试用户角色创建独立会话
+   - 配置会话头部和参数替换规则
+
+2. **配置参数**
+   - 设置要提取和替换的参数
+   - 选择提取方式（自动/静态/提示输入）
+
+3. **设置过滤器**
+   - 配置请求过滤规则
+   - 确定测试范围
+
+4. **开始测试**
+   - 启动 Auth Analyzer
+   - 使用高权限用户浏览应用
+   - 观察测试结果
+
+### 高级功能使用
+
+#### JSON Path 参数替换示例
+
+**场景**: 替换嵌套 JSON 中的用户 ID
+
+```
+配置:
+- JSON Path: $.user.id
+- 替换值: 12345
+- 移除: 否
+```
+
+**场景**: 移除认证令牌
+
+```
+配置:
+- JSON Path: $.auth.token
+- 替换值: (空)
+- 移除: 是
+```
+
+#### 多角色同时测试
+
+创建多个会话来测试不同权限级别：
+
+- **管理员会话**: 完整权限访问
+- **普通用户会话**: 有限权限访问
+- **匿名会话**: 无权限访问
+
+#### CORS 配置测试
+
+1. 在会话配置中添加 `Origin` 头部
+2. 选择 `Test CORS` 选项
+3. Auth Analyzer 自动将 HTTP 方法改为 OPTIONS
+4. 分析 CORS 响应头
+
+## 技术细节
+
+### 依赖库
+
+- **Burp Extender API (2.3)**: Burp Suite 扩展 API
+- **Gson (2.10.1)**: JSON 序列化/反序列化
+- **JSON Path (2.9.0)**: JSON 路径查询和操作
+- **JSoup (1.15.4)**: HTML 解析和处理
+- **FastJSON (2.0.32)**: 额外 JSON 处理支持
+- **Apache Tika (2.7.0)**: 内容类型检测
+- **Commons Codec (1.17.1)**: 编码操作
+
+### 构建配置
+
+- **Java 版本**: 1.8 (源码和目标)
+- **打包方式**: JAR with dependencies
+- **编码**: UTF-8
+- **构建命令**: `mvn package`
+
+### 性能特性
+
+- **异步处理**: 多线程并发请求处理
+- **内存优化**: 高效的数据结构设计
+- **响应缓存**: 智能缓存机制减少重复计算
+
+## 项目结构
+
+```
+src/
+├── burp/
+│   └── BurpExtender.java                    # 扩展入口点
+└── com/protect7/authanalyzer/
+    ├── entities/                            # 核心数据实体
+    │   ├── Session.java                     # 会话实体
+    │   ├── Token.java                       # 令牌实体
+    │   ├── JsonParameterReplace.java        # JSON 参数替换
+    │   ├── FormParameterReplace.java        # Form 参数替换
+    │   └── XmlParameterReplace.java         # XML 参数替换
+    ├── gui/                                 # 图形用户界面
+    │   ├── main/                            # 主要 UI 组件
+    │   ├── dialog/                          # 对话框窗口
+    │   └── entity/                          # UI 实体组件
+    ├── controller/                          # 业务逻辑控制器
+    │   ├── HttpListener.java                # HTTP 监听器
+    │   ├── RequestController.java           # 请求控制器
+    │   └── ContextMenuController.java       # 上下文菜单控制器
+    ├── filter/                              # 请求过滤器
+    │   ├── MethodFilter.java                # HTTP 方法过滤
+    │   ├── StatusCodeFilter.java            # 状态码过滤
+    │   └── PathFilter.java                  # 路径过滤
+    └── util/                                # 工具类
+        ├── RequestModifHelper.java          # 请求修改助手
+        ├── DataExporter.java                # 数据导出器
+        ├── PostmanCollectionBuilder.java    # Postman 集合构建器
+        └── ExtractionHelper.java            # 提取助手
+```
 
-* `Body Parameter` either `URL-Encoded` or `Multipart Form Data`
+## 贡献指南
 
-* `JSON Parameter` (e.g. `{"email":"hans.wurst[a]gmail.com"}`)
+我们欢迎社区贡献！请遵循以下步骤：
 
-Per default the parameter value will be replaced at each location. However, clicking on the parameter settings icon lets you restrict the location according to your needs.
+### 开发环境设置
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/param_replace_location.png)
+1. Fork 项目到你的 GitHub 账户
+2. 克隆你的 fork
+3. 创建功能分支: `git checkout -b feature/amazing-feature`
+4. 提交更改: `git commit -m 'Add amazing feature'`
+5. 推送分支: `git push origin feature/amazing-feature`
+6. 创建 Pull Request
 
-### Advanced Parameter Replacements
-In addition to the standard parameter replacement methods, Auth Analyzer provides advanced features for specific parameter formats:
+### 代码规范
 
-#### JSON Parameter Replacement
-Auth Analyzer supports advanced JSON parameter replacement using standard JSON Path expressions. This feature allows you to precisely target specific JSON elements for replacement or removal:
+- 遵循 Java 编码规范
+- 添加适当的注释和文档
+- 确保所有测试通过
+- 保持代码结构清晰
 
-* **JSON Path Support**: Use standard JSON Path syntax (e.g., `$.user.name`, `$.store.book[0].title`, `$..price`)
-* **Nested Object Handling**: Replace parameters in deeply nested JSON structures
-* **Array Support**: Target specific array elements or use wildcards for multiple replacements
-* **Conditional Replacement**: Apply replacements based on specific conditions
-* **Parameter Removal**: Remove specific JSON parameters completely
+### 问题报告
 
-#### Form Parameter Replacement
-Auth Analyzer now supports dedicated Form parameter replacement for both standard form data formats:
+使用 GitHub Issues 报告问题时，请包含：
 
-* **URL-Encoded Forms**: Handle `application/x-www-form-urlencoded` format parameters
-* **Multipart Forms**: Process `multipart/form-data` format parameters (including file uploads)
-* **Parameter-Specific Operations**: Replace or remove specific form parameters by name
-* **Case-Sensitive Matching**: Exact parameter name matching for precise control
-* **Form Data Reconstruction**: Properly rebuild form requests after parameter modifications
+- 详细的错误描述
+- 重现步骤
+- 环境信息（Java 版本、Burp Suite 版本等）
+- 相关日志或截图
 
-Both advanced replacement features can be configured through dedicated dialog interfaces accessible from the Session Panel via "JSON 参数替换" and "Form 参数替换" buttons respectively.
+## 更新日志
 
-## Parameter removement
-The defined parameter can be removed completely for instance to test CSRF check mechanisms. 
+### v2.0.0
+- ✨ 新增 Postman Collection v2.1 导出功能
+- 🔧 优化 JSON Path 参数替换引擎
+- 🎛️ 增强过滤器系统
+- 🐛 修复参数提取的边界情况
+- 📚 完善文档和示例
 
-## Sample Usage
+### v1.1.14
+- 🐛 修复会话配置保存问题
+- 🔧 优化响应分析算法
+- 📤 改进导出功能
+- 🎨 UI 界面优化
 
-### Auto extract session Cookie
-Define the username and password as a `static value`. The session cookie name must be defined as `auto extract`. Verify that you start navigating through the application with no session cookie set. Login to the web app. The Auth Analyzer will repeat the login request with the static parameters and automatically gets the session by the `Set-Cookie` header. This Cookie will be used for further requests of the given session. The defined Cookie will be treated as a parameter and therefore no Cookie Header must be defined.
+## 常见问题
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/auto_extract_session_id_1.png)
+### Q: 如何提取 JavaScript 变量中的值？
+A: 使用 "From To String" 提取方式，设置起始和结束字符串来定位变量值。
 
-Hint: You can restrict the extract and replace conditions for a parameter to avoid malfunction at the extracting / replacing stage.
+### Q: JSON Path 支持哪些语法？
+A: 支持标准 JSON Path 语法，包括嵌套对象、数组索引、递归搜索等。
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/parameter_settings_session_cookie.png)
+### Q: 如何测试 CSRF 保护机制？
+A: 配置参数移除功能，移除 CSRF 令牌参数，观察请求是否被拒绝。
 
-### Session Header and CSRF Token Parameter
-Define a Cookie header and a CSRF token (with `auto value extract`). The CSRF token value will be extracted if it is present in an `HTML Input Tag`, a `Set-Cookie Header` or a `JSON Response` of the given session.
+### Q: Postman 导出支持哪些格式？
+A: 目前支持 Postman Collection v2.1 格式，完全兼容 Postman 导入。
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/session_header_with_csrf_token.png)
+## 免责声明
 
-### Auto extract from JavaScript variable
-Since the `Auto Extract` method only works on `HTML Input Fields`, `JSON Objects` or `Set-Cookie Headers` we must use the generic extraction method called `From To String`. With this extraction method we can extract any value from a response if it is located between a unique starting and ending string. The Auth Analyzer provides a context menu method to set the `From String` and `To String` automatically. Just mark the String you want to extract and set as `From-To Extract` by the context menu.
+本工具仅用于合法的安全研究和授权测试。使用者应当：
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/auto_extract_csrftoken_from_js_var.png)
+- 仅在获得明确授权的系统上使用
+- 遵守相关法律法规和道德准则
+- 对使用本工具产生的任何后果承担责任
 
-### Auto extract and insert a Bearer Token
-Since the Authorization Header is not treated as a parameter (as it is done with the Cookie Header), we can use a header insertion point to achieve what we want. Just mark and right click the value you want to replace in the specified header. The `defaultvalue` will be used if no parameter value is extracted yet.
+详细信息请参阅 [DISCLAIMER.md](DISCLAIMER.md)。
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/auto_extract_and_insert_bearer_token.png)
+## 开源协议
 
-### Test several roles at a time
-Just create as many sessions as you want to test several roles at a time. 
+本项目采用 MIT 开源协议，详情请参阅 [LICENSE](LICENSE)。
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/several_sessions_1.png)
+## 联系方式
 
-### Refresh Auto Exracted Parameter Value
-Just press `Renew` on the session status panel or repeat the affected request by the context menu (mouse right click in the table entry). Hint: The login request(s) can be marked and filtered afterwards.
+- **项目主页**: https://github.com/GitHubNull/my_auth_analyzer
+- **问题反馈**: https://github.com/GitHubNull/my_auth_analyzer/issues
+- **作者**: org 0xff (增强功能开发者)
 
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/renew_session.png)
+---
 
-### Test idempotent Operations
-Original Requests can be dropped for testing idempotent operations (e.g. a `DELETE` function).
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/idempotent_operations.png)
-
-### Test anonymous sessions
-If an anonymous user needs a valid characteristic (e.g., a valid cookie value) you have to define the header as usual. Otherwise, you can define a header to remove as follows:
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/test_anonymous.png)
-
-### Test CORS configuration
-You can easily test a large number of endpoints on its individual CORS settings by adding an Origin header at `Header(s) to replace` and select `Test CORS` on the Session Panel. By selecting `Test CORS` the Auth Analyzer will change the HTTP method to `OPTIONS` before the request is repeated
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/test_cors.png)
-
-### Test CSRF Check mechanism
-A specified parameter can be removed by selecting the `Remove Checkbox`. This can be used for instance to test the CSRF check mechanism.
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/remove_csrf.png)
-
-### Advanced Parameter Replacement Usage
-
-#### JSON Parameter Replacement Examples
-Configure JSON parameter replacements to modify specific JSON fields in request bodies:
-
-**Replace User ID in nested JSON**:
-- JSON Path: `$.user.id`  
-- Replace Value: `12345`
-- Remove: No
-
-**Remove Authentication Token**:
-- JSON Path: `$.auth.token`
-- Replace Value: (empty)
-- Remove: Yes
-
-**Replace Array Element**:
-- JSON Path: `$.items[0].price`
-- Replace Value: `99.99` 
-- Remove: No
-
-#### Form Parameter Replacement Examples
-Configure Form parameter replacements to modify form data in request bodies:
-
-**Replace Username Parameter**:
-- Parameter Name: `username`
-- Replace Value: `admin`
-- Remove: No
-
-**Remove CSRF Token**:
-- Parameter Name: `csrf_token`
-- Replace Value: (empty)
-- Remove: Yes
-
-**Replace User Role**:
-- Parameter Name: `role`
-- Replace Value: `administrator`
-- Remove: No
-
-These advanced features work alongside the standard parameter replacement system and can be used simultaneously to handle complex authorization testing scenarios.
-
-### Verify the Bypass Status
-The Auth Analyzer provides a build in comparison view to verify the differences between two responses. Just mark the message you want to analyze and change the message view `(1)`. You are now able to compare the two requests `(2) (3)`. The built in `Diff` Feature will calculate and show the differences between the two requests in real time `(4)`
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/compare_view.png)
-
-Expanded Diff view:
-
-![Auth Analyzer](https://github.com/simioni87/auth_analyzer/blob/main/pics/diff_view.png)
-
-## Processing Filter
-The Auth Analyzer should process two types of requests / responses:
-
-* The response contains a value which must be extracted
-
-* The requested resource should not be accessible by the defined session(s)
-
-For instance, we don't want to process a static JavaScript file because it is accessible for everyone and (hopefully) does not contain any protected data. To achieve this, we can set following types of filters:
-*	Only In Scope (only requests to the set Scope will be processed)
-*	Only Proxy Traffic (only requests to the "Proxy History" will be processed)
-*	Exclude Filetypes (specified Filetypes can be excluded)
-*	Exclude HTTP Methods (specified HTTP Methods can be excluded)
-*	Exclude Status Codes (specified Status Codes can be excluded)
-*	Exclude Paths (specified Paths can be excluded)
-*	Exclude Queries / Params (specified Queries / Params can be excluded) 
-
-## Automated Response Analysis
-*	The Response will be declared as SAME if `Both Responses have same Response Body` and `same Response Code`
-*	The Response will be declared as SIMILAR if `Both Responses have same Response Code` and `Both Responses have +-5% of response body length`
-*	The Response will be declared as DIFFERENT in every other case
-
-## Features
-*	Session Creation for each user role
-*	Renaming and Removing a Session
-*	Clone a Session
-*	Set any amount of Headers to replace / add
-*	Set Headers to remove
-*	Set any amount of parameters to replace
-*	Define how the parameter value will be discovered (automatic, static, prompt for input, from to string)
-*	Remove a specified parameter
-*	**Advanced JSON Parameter Replacement with JSON Path support**
-*	**Form Parameter Replacement for URL-encoded and Multipart form data**
-*	**Parameter-specific replacement and removal operations**
-*	Detailed Filter Rules
-*	Detailed Status Panel for each Session
-*	Pause each Session separately
-*	Renew Auto Extracted Parameter Value automatically
-*	Repeat Request by context menu
-*	Table Data Filter
-*	Table Data Export Functionality
-*	Start / Stop / Pause the "Auth Analyzer"
-*	Pause each Session seperatly
-*	Restrict session to defined scope
-*	Filter Requests with same header(s)
-* Drop Original Request functionality
-*	Detailed view of all processed Requests and Responses
-*	Send Header(s) and / or Parameter(s) directly to Auth Analyzer by Context Menu
-*	Auto save current configuration
-* Save to file and load from file current configuration
-* Search function in repeated requests
-* Semi Automated Authoriztaion Testing
+**免责声明**: 本工具仅用于授权的安全测试和研究目的。使用者需要确保在合法和道德的范围内使用此工具。
