@@ -23,19 +23,41 @@ public class DataExportDialog {
         JRadioButton htmlReport = new JRadioButton("HTML Export", true);
         JRadioButton interactiveHTMLReport = new JRadioButton("Inter active HTML Export");
         JRadioButton xmlReport = new JRadioButton("XML Export");
+        JRadioButton postmanReport = new JRadioButton("Postman Collection v2.1");
         ButtonGroup group = new ButtonGroup();
         group.add(htmlReport);
         group.add(interactiveHTMLReport);
         group.add(xmlReport);
+        group.add(postmanReport);
         inputPanel.add(htmlReport);
         inputPanel.add(interactiveHTMLReport);
         inputPanel.add(xmlReport);
+        inputPanel.add(postmanReport);
         JCheckBox doBase64Encode = new JCheckBox("Base64-encode requests and responses", true);
         doBase64Encode.setEnabled(false);
         interactiveHTMLReport.addActionListener(e -> doBase64Encode.setEnabled(false));
         htmlReport.addActionListener(e -> doBase64Encode.setEnabled(false));
+        postmanReport.addActionListener(e -> doBase64Encode.setEnabled(false));
         xmlReport.addActionListener(e -> doBase64Encode.setEnabled(true));
         inputPanel.add(doBase64Encode);
+
+        // Postman-specific options
+        JPanel postmanOptionsPanel = new JPanel();
+        postmanOptionsPanel.setLayout(new BoxLayout(postmanOptionsPanel, BoxLayout.PAGE_AXIS));
+        postmanOptionsPanel.setBorder(BorderFactory.createTitledBorder("Postman Options"));
+
+        JCheckBox includeOriginalRequests = new JCheckBox("Include original requests in collection", true);
+        postmanOptionsPanel.add(includeOriginalRequests);
+
+        inputPanel.add(postmanOptionsPanel);
+        postmanOptionsPanel.setEnabled(false);
+
+        // Enable/disable Postman options based on radio button selection
+        postmanReport.addActionListener(e -> postmanOptionsPanel.setEnabled(true));
+        htmlReport.addActionListener(e -> postmanOptionsPanel.setEnabled(false));
+        interactiveHTMLReport.addActionListener(e -> postmanOptionsPanel.setEnabled(false));
+        xmlReport.addActionListener(e -> postmanOptionsPanel.setEnabled(false));
+
         inputPanel.add(new JLabel(" "));
         inputPanel.add(new JSeparator(JSeparator.HORIZONTAL));
         inputPanel.add(new JLabel(" "));
@@ -83,28 +105,36 @@ public class DataExportDialog {
             } else if (interactiveHTMLReport.isSelected()) {
                 chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
                 chooser.setSelectedFile(new File("interActiveHTMLReport"));
+            } else if (postmanReport.isSelected()) {
+                chooser.setSelectedFile(new File("Auth_Analyzer_Collection.postman_collection.json"));
             } else {
                 chooser.setSelectedFile(new File("Auth_Analyzer_Report.xml"));
             }
             int status = chooser.showSaveDialog(centerPanel);
             if (status == JFileChooser.APPROVE_OPTION) {
                 File file = chooser.getSelectedFile();
-                if (!file.getName().endsWith(".html") || !file.getName().endsWith(".xml")) {
-                    String newFileName;
+                // Handle file extensions based on selected format
+                if (htmlReport.isSelected() && !file.getName().endsWith(".html")) {
+                    String newFileName = file.getAbsolutePath();
                     if (file.getName().lastIndexOf(".") != -1) {
                         int index = file.getAbsolutePath().lastIndexOf(".");
                         newFileName = file.getAbsolutePath().substring(0, index);
-                    } else {
-                        newFileName = file.getAbsolutePath();
                     }
-                    if (htmlReport.isSelected() || xmlReport.isSelected()) {
-                        if (htmlReport.isSelected()) {
-                            newFileName = newFileName + ".html";
-                        } else {
-                            newFileName = newFileName + ".xml";
-                        }
+                    file = new File(newFileName + ".html");
+                } else if (postmanReport.isSelected() && !file.getName().endsWith(".json")) {
+                    String newFileName = file.getAbsolutePath();
+                    if (file.getName().lastIndexOf(".") != -1) {
+                        int index = file.getAbsolutePath().lastIndexOf(".");
+                        newFileName = file.getAbsolutePath().substring(0, index);
                     }
-                    file = new File(newFileName);
+                    file = new File(newFileName + ".json");
+                } else if (xmlReport.isSelected() && !file.getName().endsWith(".xml")) {
+                    String newFileName = file.getAbsolutePath();
+                    if (file.getName().lastIndexOf(".") != -1) {
+                        int index = file.getAbsolutePath().lastIndexOf(".");
+                        newFileName = file.getAbsolutePath().substring(0, index);
+                    }
+                    file = new File(newFileName + ".xml");
                 }
                 ArrayList<OriginalRequestResponse> filteredRequestResponseList = centerPanel.getFilteredRequestResponseList();
                 boolean success = false;
@@ -132,6 +162,15 @@ public class DataExportDialog {
                     } catch (IOException e) {
                         e.printStackTrace();
                         BurpExtender.callbacks.issueAlert("Failed to extract resources to " + file.getAbsolutePath());
+                    }
+                } else if (postmanReport.isSelected()) {
+                    success = DataExporter.getDataExporter().createPostmanCollection(file, filteredRequestResponseList,
+                            CurrentConfig.getCurrentConfig().getSessions(), includeOriginalRequests.isSelected());
+
+                    if (success) {
+                        JOptionPane.showMessageDialog(centerPanel, "Successfully exported Postman collection to\n" + file.getAbsolutePath());
+                    } else {
+                        JOptionPane.showMessageDialog(centerPanel, "Failed to export Postman collection");
                     }
                 } else {
                     success = DataExporter.getDataExporter().createXML(file, filteredRequestResponseList, CurrentConfig.getCurrentConfig().getSessions(),

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 
 import com.alibaba.fastjson.JSON;
 import com.protect7.authanalyzer.entities.AnalyzerRequestResponse;
@@ -20,6 +21,7 @@ import org.oxff.entities.ExportAuthAnalyzerDataItem;
 import org.oxff.entities.SessionHTTPData;
 import org.oxff.util.BurpSuiteHTTPDataHelper;
 import org.oxff.util.FileWriteUtil;
+import com.protect7.authanalyzer.util.PostmanCollectionBuilder;
 
 import javax.swing.*;
 
@@ -350,6 +352,78 @@ public class DataExporter {
 		}
 
 		return authAnalyzerDataItemList;
+	}
+
+	/**
+	 * Create Postman Collection v2.1 format export
+	 */
+	public boolean createPostmanCollection(File file, ArrayList<OriginalRequestResponse> originalRequestResponseList,
+			ArrayList<Session> sessions, boolean includeOriginalRequests, String collectionName, String collectionDescription) {
+		try {
+			// Create export data items
+			List<ExportAuthAnalyzerDataItem> exportData = createAuthAnalyzerData(originalRequestResponseList, sessions);
+
+			if (exportData == null || exportData.isEmpty()) {
+				BurpExtender.callbacks.printError("Error. No data available for Postman export.");
+				JOptionPane.showMessageDialog(null, "Error. No data available for Postman export.", "Error", JOptionPane.ERROR_MESSAGE);
+				return false;
+			}
+
+			// Build Postman collection
+			PostmanCollectionBuilder builder = new PostmanCollectionBuilder()
+					.setIncludeOriginalRequests(includeOriginalRequests);
+
+			// Set custom collection info if provided
+			if (collectionName != null && !collectionName.trim().isEmpty()) {
+				if (collectionDescription != null && !collectionDescription.trim().isEmpty()) {
+					builder.setCollectionInfo(collectionName, collectionDescription);
+				} else {
+					builder.setCollectionInfo(collectionName, "Exported from " + Globals.EXTENSION_NAME + " v" + Globals.VERSION);
+				}
+			}
+
+			// Add export data to collection
+			builder.addExportData(exportData);
+
+			// Validate collection
+			if (!builder.validateCollection()) {
+				BurpExtender.callbacks.printError("Error. Generated Postman collection validation failed.");
+				JOptionPane.showMessageDialog(null, "Error. Generated Postman collection validation failed.", "Error", JOptionPane.ERROR_MESSAGE);
+				return false;
+			}
+
+			// Write collection to file
+			FileWriter writer = new FileWriter(file);
+			writer.write(builder.build());
+			writer.close();
+
+			// Log statistics
+			Map<String, Object> stats = builder.getStatistics();
+			BurpExtender.callbacks.printOutput("Postman collection exported successfully:");
+			BurpExtender.callbacks.printOutput("  Folders: " + stats.get("totalFolders"));
+			BurpExtender.callbacks.printOutput("  Items: " + stats.get("totalItems"));
+			BurpExtender.callbacks.printOutput("  Include Original Requests: " + stats.get("includeOriginalRequests"));
+
+			return true;
+
+		} catch (IOException e) {
+			BurpExtender.callbacks.printError("Error. Can not write Postman collection to file. " + e.getMessage());
+			JOptionPane.showMessageDialog(null, "Error. Can not write Postman collection to file. " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+			return false;
+		} catch (Exception e) {
+			BurpExtender.callbacks.printError("Error. Failed to create Postman collection. " + e.getMessage());
+			JOptionPane.showMessageDialog(null, "Error. Failed to create Postman collection. " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+			return false;
+		}
+	}
+
+	/**
+	 * Create Postman Collection v2.1 format export with default settings
+	 */
+	public boolean createPostmanCollection(File file, ArrayList<OriginalRequestResponse> originalRequestResponseList,
+			ArrayList<Session> sessions, boolean includeOriginalRequests) {
+		return createPostmanCollection(file, originalRequestResponseList, sessions, includeOriginalRequests,
+				Globals.EXTENSION_NAME + " Export", "Requests exported from " + Globals.EXTENSION_NAME + " for authorization testing");
 	}
 
 	public enum MainColumn {

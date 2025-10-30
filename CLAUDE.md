@@ -12,6 +12,7 @@ This is **Auth Analyzer**, a Burp Suite extension designed for authorization tes
 - **Advanced Parameter Replacement**: Support for JSON Path, Form data, and XML parameter manipulation
 - **Response Analysis**: Automatic comparison of original and modified requests to identify bypasses
 - **Bypass Detection**: Built-in analysis to flag potential authorization bypasses
+- **Postman Export**: Export requests and responses to Postman Collection v2.1 format for API testing
 
 ## Architecture
 
@@ -119,9 +120,55 @@ mvn install
 ## Configuration and Data Storage
 
 - Session configurations auto-save to persistent storage
-- Export functionality supports XML and HTML formats
+- Export functionality supports XML, HTML, and Postman Collection formats
 - Configuration persistence handled through `DataStorageProvider`
 - Session data includes request/response history for analysis
+
+## Postman Collection Export
+
+### Overview
+The Auth Analyzer now supports exporting requests and responses to Postman Collection v2.1 format, enabling easy integration with Postman for API testing and collaboration.
+
+### Features
+- **Session Organization**: Requests are organized in folders by session name
+- **Request Naming**: Includes method, path, and bypass status (e.g., "GET /api/users - BYPASS")
+- **Metadata Preservation**: Session info, bypass status, and response codes included in descriptions
+- **Flexible Export Options**: User choice to include original requests alongside modified test requests
+- **Schema Compliance**: Full compliance with Postman Collection v2.1 specification
+
+### Export Process
+1. Click "Export Table Data" in the Auth Analyzer interface
+2. Select "Postman Collection v2.1" format
+3. Choose whether to include original requests (checkbox option)
+4. Save as `.json` file
+5. Import the collection into Postman
+
+### Collection Structure
+```
+Auth Analyzer Export/
+├── Session: Admin/
+│   ├── GET /api/users - BYPASS
+│   ├── POST /api/users - SAME
+│   └── ...
+├── Session: User/
+│   ├── GET /api/profile - DIFFERENT
+│   └── ...
+└── Session: Anonymous/
+    ├── GET /api/public - SAME
+    └── ...
+```
+
+### Technical Implementation
+- **PostmanCollectionBuilder**: Main builder class creating collection structure
+- **PostmanItemConverter**: Converts HTTP data to Postman request/response format
+- **PostmanConstants**: Constants for schema URLs, content types, and naming patterns
+- **Integration**: Seamlessly integrated into existing DataExporter and DataExportDialog
+
+### Key Technical Details
+- **Dependencies**: Uses existing Gson library (no new Maven dependencies needed)
+- **Data Flow**: Leverages existing ExportAuthAnalyzerDataItem structures
+- **Format Compliance**: Strict adherence to Postman Collection v2.1 schema
+- **User Experience**: Seamless integration with existing export dialog
 
 ## Security Considerations
 
