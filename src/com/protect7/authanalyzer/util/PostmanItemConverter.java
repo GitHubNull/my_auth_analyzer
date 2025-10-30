@@ -359,11 +359,55 @@ public class PostmanItemConverter {
      * Generate request name based on method, path, and bypass status
      */
     public static String generateRequestName(String method, String host, String path, String bypassStatus) {
-        String pathOnly = extractPathFromUrl(host + path);
+        String pathOnly;
+
+        if (path == null || path.trim().isEmpty()) {
+            pathOnly = "/";
+        } else if (path.startsWith("http://") || path.startsWith("https://")) {
+            // path is a complete URL, extract path directly
+            pathOnly = extractPathFromUrl(path);
+        } else {
+            // path is relative, build full URL first
+            String fullUrl = buildFullUrl(host, path);
+            pathOnly = extractPathFromUrl(fullUrl);
+        }
+
         return String.format(PostmanConstants.REQUEST_NAME_PATTERN,
                            method != null ? method : "UNKNOWN",
                            pathOnly != null ? pathOnly : "/unknown",
                            bypassStatus != null ? bypassStatus : "UNKNOWN");
+    }
+
+    /**
+     * Build full URL from host and relative path
+     */
+    private static String buildFullUrl(String host, String path) {
+        if (path == null || path.trim().isEmpty()) {
+            return host != null ? "http://" + host.trim() + "/" : "/";
+        }
+
+        path = path.trim();
+
+        // If path is already a complete URL, return it as is
+        if (path.startsWith("http://") || path.startsWith("https://")) {
+            return path;
+        }
+
+        // Otherwise, build URL from host and relative path
+        if (host == null || host.trim().isEmpty()) {
+            return path.startsWith("/") ? path : "/" + path;
+        }
+
+        StringBuilder url = new StringBuilder();
+        url.append("http://").append(host.trim());
+
+        if (path.startsWith("/")) {
+            url.append(path);
+        } else {
+            url.append("/").append(path);
+        }
+
+        return url.toString();
     }
 
     /**
@@ -385,27 +429,71 @@ public class PostmanItemConverter {
      */
     private static String extractPathFromUrl(String url) {
         if (url == null || url.trim().isEmpty()) {
-            return "/unknown";
+            return "/";
         }
+
+        // Remove any surrounding whitespace
+        url = url.trim();
 
         try {
             URL urlObj = new URL(url);
             String path = urlObj.getPath();
-            if (path == null || path.isEmpty() || path.equals("/")) {
+
+            if (path == null || path.isEmpty()) {
                 return "/";
             }
+
+            // If path is just "/", return it as is
+            if (path.equals("/")) {
+                return "/";
+            }
+
             return path;
         } catch (Exception e) {
-            // If parsing fails, return a simplified path
-            if (url.contains("://")) {
-                int protocolEnd = url.indexOf("://");
-                int pathStart = url.indexOf("/", protocolEnd + 3);
-                if (pathStart != -1) {
-                    return url.substring(pathStart);
-                }
-            }
-            return "/unknown";
+            // Enhanced fallback logic for various URL formats
+            return extractPathFromUrlManually(url);
         }
+    }
+
+    /**
+     * Manual path extraction fallback for malformed URLs
+     */
+    private static String extractPathFromUrlManually(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return "/";
+        }
+
+        // Case 1: URL contains protocol
+        if (url.contains("://")) {
+            int protocolEnd = url.indexOf("://");
+            int hostEnd = url.indexOf("/", protocolEnd + 3);
+
+            if (hostEnd != -1) {
+                // Extract everything after the host
+                String pathAndQuery = url.substring(hostEnd);
+                if (pathAndQuery.isEmpty()) {
+                    return "/";
+                }
+                return pathAndQuery.split("\\?")[0]; // Remove query parameters
+            } else {
+                // No path found after host
+                return "/";
+            }
+        }
+
+        // Case 2: URL starts with / (already a path)
+        if (url.startsWith("/")) {
+            return url.split("\\?")[0]; // Remove query parameters
+        }
+
+        // Case 3: URL without protocol (relative URL)
+        int slashIndex = url.indexOf("/");
+        if (slashIndex != -1) {
+            return url.substring(slashIndex).split("\\?")[0]; // Remove query parameters
+        }
+
+        // Case 4: Just a hostname or other format
+        return "/";
     }
 
     /**

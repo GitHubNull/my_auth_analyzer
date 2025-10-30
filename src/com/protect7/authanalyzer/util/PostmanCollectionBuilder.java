@@ -180,8 +180,8 @@ public class PostmanCollectionBuilder {
         String bypassStatus = getBypassStatusString(sessionData.getStatus());
         String requestName = PostmanItemConverter.generateRequestName(
                 sessionData.getMethod() != null ? sessionData.getMethod() : exportItem.getMethod(),
-                exportItem.getHost(),
-                exportItem.getPath(),
+                exportItem.getEffectiveHost(),
+                exportItem.getEffectivePath(),
                 bypassStatus
         );
         postmanItem.addProperty("name", requestName);
@@ -232,8 +232,8 @@ public class PostmanCollectionBuilder {
         JsonObject originalItem = new JsonObject();
         originalItem.addProperty("name", PostmanItemConverter.generateRequestName(
                 exportItem.getMethod(),
-                exportItem.getHost(),
-                exportItem.getPath(),
+                exportItem.getEffectiveHost(),
+                exportItem.getEffectivePath(),
                 "ORIGINAL"
         ) + " " + PostmanConstants.ORIGINAL_REQUEST_NOTE);
 
