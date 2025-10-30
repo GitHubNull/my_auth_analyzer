@@ -13,14 +13,14 @@
 
 ### Key Features
 
-🔒 **Multi-Session Management** - Test multiple user roles and privilege levels simultaneously
-🎯 **Intelligent Parameter Extraction** - Automatically extract tokens, cookies, and parameters from responses
-🔧 **Advanced Parameter Replacement** - Support for JSON Path, Form data, and XML parameter manipulation
-📊 **Response Analysis Comparison** - Automatically compare original and modified request responses
-🚨 **Bypass Detection** - Built-in analysis engine to identify potential authorization bypasses
-📤 **Postman Export** - Export requests and responses to Postman Collection v2.1 format
-🎛️ **Flexible Filtering System** - Multiple filters to precisely control testing scope
-💾 **Configuration Persistence** - Auto-save and load session configurations
+🔒 **Multi-Session Management** - Test multiple user roles and privilege levels simultaneously  
+🎯 **Intelligent Parameter Extraction** - Automatically extract tokens, cookies, and parameters from responses  
+🔧 **Advanced Parameter Replacement** - Support for JSON Path, Form data, and XML parameter manipulation  
+📊 **Response Analysis Comparison** - Automatically compare original and modified request responses  
+🚨 **Bypass Detection** - Built-in analysis engine to identify potential authorization bypasses  
+📤 **Postman Export** - Export requests and responses to Postman Collection v2.1 format  
+🎛️ **Flexible Filtering System** - Multiple filters to precisely control testing scope  
+💾 **Configuration Persistence** - Auto-save and load session configurations  
 
 ## Table of Contents
 
